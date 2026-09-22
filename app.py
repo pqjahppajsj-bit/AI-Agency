@@ -1,0 +1,1322 @@
+import re
+import os
+import secrets
+import requests
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from flask_limiter import Limiter
+from dotenv import load_dotenv
+from flask_sqlalchemy import SQLAlchemy
+from security_config import configure_security
+
+load_dotenv()
+
+app = Flask(__name__)
+app = configure_security(app)
+limiter = Limiter(
+    key_func=lambda: request.remote_addr,
+    app=app,
+    default_limits=[],
+    storage_uri=os.getenv("RATELIMIT_STORAGE_URI", "redis://127.0.0.1:6379/0")
+)
+
+configure_security(app)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-this-secret-key")
+
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///agency.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+
+class Business(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, default="AI Agency Demo Business")
+    owner_name = db.Column(db.String(120), default="")
+    phone = db.Column(db.String(50), default="")
+    email = db.Column(db.String(150), default="")
+    created_at = db.Column(db.DateTime, default=db.func.now())
+
+
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey("business.id"), nullable=True)
+    name = db.Column(db.String(120), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    description = db.Column(db.String(500), default="")
+
+
+class Lead(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey("business.id"), nullable=True)
+    name = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(50), default="")
+    message = db.Column(db.String(500), default="")
+    status = db.Column(db.String(30), default="New")
+
+
+with app.app_context():
+    db.create_all()
+
+
+
+
+CSRF_COOKIE_NAME = "ai_agency_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
+
+@app.before_request
+def csrf_protect():
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        supplied = request.headers.get(CSRF_HEADER_NAME, "")
+        cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
+
+        if not supplied or not cookie_token or supplied != cookie_token:
+            return jsonify({"error": "CSRF validation failed"}), 403
+
+@app.after_request
+def csrf_cookie(response):
+    if not request.cookies.get(CSRF_COOKIE_NAME):
+        token = secrets.token_urlsafe(32)
+        production = os.getenv("PRODUCTION", "0") == "1"
+
+        response.set_cookie(
+            CSRF_COOKIE_NAME,
+            token,
+            httponly=False,
+            secure=production,
+            samesite="Lax",
+            max_age=3600,
+        )
+
+    return response
+
+@app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+
+    data = request.get_json(silent=True) or request.form
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+
+    admin_username = os.getenv("ADMIN_USERNAME", "admin").strip()
+    admin_password_hash = os.getenv("ADMIN_PASSWORD_HASH", "")
+
+    from werkzeug.security import check_password_hash
+
+    password_ok = False
+
+    if admin_password_hash:
+        try:
+            password_ok = check_password_hash(
+                admin_password_hash,
+                password
+            )
+        except ValueError:
+            password_ok = False
+
+    if username == admin_username and password_ok:
+        session.permanent = True
+        session["admin_logged_in"] = True
+        return jsonify({"message": "Login successful"})
+
+    return jsonify({"error": "Invalid username or password"}), 401
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+def require_admin():
+    return session.get("admin_logged_in") is True
+
+
+@app.route("/")
+def home():
+    if not require_admin():
+        return redirect(url_for("login"))
+    return render_template("index.html")
+
+
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "online",
+        "service": "AI Agency"
+    })
+
+
+
+
+@app.route("/welcome", methods=["GET"])
+def welcome():
+    return render_template("welcome.html")
+
+@app.route("/dashboard", methods=["GET"])
+def dashboard():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    products = Product.query.filter_by(
+        business_id=business.id
+    ).count() if business else 0
+    leads = Lead.query.filter_by(
+        business_id=business.id
+    ).count() if business else 0
+    orders = Order.query.filter_by(
+        business_id=business.id
+    ).count() if business else 0
+
+    pending_orders = Order.query.filter_by(
+        business_id=business.id,
+        status="Pending"
+    ).count() if business else 0
+    converted_leads = Lead.query.filter_by(
+        business_id=business.id,
+        status="Converted"
+    ).count() if business else 0
+
+    revenue = db.session.query(
+        db.func.coalesce(db.func.sum(Order.amount), 0)
+    ).filter(
+        Order.business_id == business.id
+    ).scalar() if business else 0
+
+    return jsonify({
+        "products": products,
+        "leads": leads,
+        "orders": orders,
+        "revenue": float(revenue or 0),
+        "pending_orders": pending_orders,
+        "converted_leads": converted_leads
+    })
+
+
+@app.route("/products", methods=["GET"])
+def products():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    products = Product.query.filter_by(
+        business_id=business.id
+    ).order_by(Product.id.desc()).all()
+
+    return jsonify([
+        {
+            "id": product.id,
+            "name": product.name,
+            "price": product.price,
+            "description": product.description
+        }
+        for product in products
+    ])
+
+
+@app.route("/products", methods=["POST"])
+def add_product():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    data = request.get_json() or {}
+
+    name = str(data.get("name", "")).strip()
+    description = str(data.get("description", "")).strip()
+
+    try:
+        price = float(data.get("price", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid price"}), 400
+
+    if not name:
+        return jsonify({"error": "Product name is required"}), 400
+
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    product = Product(
+        business_id=business.id,
+        name=name,
+        price=price,
+        description=description
+    )
+
+    db.session.add(product)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Product created",
+        "id": product.id
+    }), 201
+
+
+
+@app.route("/products/<int:product_id>", methods=["PUT"])
+def update_product(product_id):
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    product = Product.query.filter_by(
+        id=product_id,
+        business_id=business.id
+    ).first()
+
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    data = request.get_json() or {}
+
+    name = str(data.get("name", product.name)).strip()
+    description = str(data.get("description", product.description or "")).strip()
+
+    try:
+        price = float(data.get("price", product.price))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid price"}), 400
+
+    if not name:
+        return jsonify({"error": "Product name is required"}), 400
+
+    product.name = name
+    product.price = price
+    product.description = description
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Product updated",
+        "id": product.id
+    })
+
+
+@app.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_product(product_id):
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    product = Product.query.filter_by(
+        id=product_id,
+        business_id=business.id
+    ).first()
+
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    db.session.delete(product)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Product deleted",
+        "id": product_id
+    })
+
+
+
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey("business.id"), nullable=True)
+    customer_name = db.Column(db.String(120), nullable=False)
+    customer_phone = db.Column(db.String(50), default="")
+    customer_address = db.Column(db.String(300), default="")
+    product_name = db.Column(db.String(120), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    amount = db.Column(db.Float, nullable=False, default=0)
+    status = db.Column(db.String(30), default="Pending")
+
+
+
+@app.route("/orders", methods=["GET"])
+def orders():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    orders = Order.query.filter_by(
+        business_id=business.id
+    ).order_by(Order.id.desc()).all()
+
+    return jsonify([
+        {
+            "id": order.id,
+            "customer_name": order.customer_name,
+            "customer_phone": getattr(order, "customer_phone", ""),
+            "customer_address": getattr(order, "customer_address", ""),
+            "product_name": order.product_name,
+            "quantity": order.quantity,
+            "amount": order.amount,
+            "status": order.status
+        }
+        for order in orders
+    ])
+
+
+
+@app.route("/orders/<int:order_id>", methods=["PUT"])
+def update_order(order_id):
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    order = Order.query.filter_by(
+        id=order_id,
+        business_id=business.id
+    ).first()
+
+    if not order:
+        return jsonify({"error": "Order not found"}), 404
+
+    data = request.get_json() or {}
+    status = str(data.get("status", order.status)).strip()
+
+    allowed = ["Pending", "Processing", "Completed", "Cancelled"]
+
+    if status not in allowed:
+        return jsonify({"error": "Invalid order status"}), 400
+
+    order.status = status
+    db.session.commit()
+
+    return jsonify({
+        "message": "Order status updated",
+        "id": order.id,
+        "status": order.status
+    })
+
+
+@app.route("/orders/<int:order_id>", methods=["DELETE"])
+def delete_order(order_id):
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    order = Order.query.filter_by(
+        id=order_id,
+        business_id=business.id
+    ).first()
+
+    if not order:
+        return jsonify({"error": "Order not found"}), 404
+
+    db.session.delete(order)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Order deleted",
+        "id": order_id
+    })
+
+
+@app.route("/orders", methods=["POST"])
+def add_order():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    data = request.get_json() or {}
+
+    customer_name = str(data.get("customer_name", "")).strip()
+    customer_phone = str(data.get("customer_phone", "")).strip()
+    customer_address = str(data.get("customer_address", "")).strip()
+    product_name = str(data.get("product_name", "")).strip()
+
+    try:
+        quantity = int(data.get("quantity", 1))
+        amount = float(data.get("amount", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid quantity or amount"}), 400
+
+    if not customer_name or not product_name:
+        return jsonify({
+            "error": "Customer name and product name are required"
+        }), 400
+
+    if quantity < 1 or amount < 0:
+        return jsonify({
+            "error": "Invalid quantity or amount"
+        }), 400
+
+    order = Order(
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        customer_address=customer_address,
+        product_name=product_name,
+        quantity=quantity,
+        amount=amount,
+        status="Pending"
+    )
+
+    db.session.add(order)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Order created",
+        "id": order.id
+    }), 201
+
+
+@app.route("/leads", methods=["GET"])
+def leads():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    leads = Lead.query.filter_by(
+        business_id=business.id
+    ).order_by(Lead.id.desc()).all()
+
+    return jsonify([
+        {
+            "id": lead.id,
+            "name": lead.name,
+            "phone": lead.phone,
+            "message": lead.message,
+            "status": lead.status
+        }
+        for lead in leads
+    ])
+
+
+@app.route("/leads", methods=["POST"])
+def add_lead():
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    data = request.get_json() or {}
+
+    name = str(data.get("name", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    message = str(data.get("message", "")).strip()
+
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    lead = Lead(
+        business_id=business.id,
+        name=name,
+        phone=phone,
+        message=message
+    )
+
+    db.session.add(lead)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Lead created",
+        "id": lead.id
+    }), 201
+
+
+
+@app.route("/leads/<int:lead_id>", methods=["PUT"])
+def update_lead(lead_id):
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    lead = Lead.query.filter_by(
+        id=lead_id,
+        business_id=business.id
+    ).first()
+
+    if not lead:
+        return jsonify({"error": "Lead not found"}), 404
+
+    data = request.get_json() or {}
+
+    status = str(data.get("status", lead.status)).strip()
+
+    allowed = ["New", "Contacted", "Converted"]
+
+    if status not in allowed:
+        return jsonify({
+            "error": "Invalid status"
+        }), 400
+
+    lead.status = status
+    db.session.commit()
+
+    return jsonify({
+        "message": "Lead status updated",
+        "id": lead.id,
+        "status": lead.status
+    })
+
+
+@app.route("/leads/<int:lead_id>", methods=["DELETE"])
+def delete_lead(lead_id):
+    if not require_admin():
+        return jsonify({"error": "Authentication required"}), 401
+    business = require_active_business()
+    if business is None:
+        return jsonify({"error": "No active business"}), 400
+
+    lead = Lead.query.filter_by(
+        id=lead_id,
+        business_id=business.id
+    ).first()
+
+    if not lead:
+        return jsonify({"error": "Lead not found"}), 404
+
+    db.session.delete(lead)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Lead deleted",
+        "id": lead_id
+    })
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json(silent=True) or {}
+    message = str(data.get("message", "")).strip()
+
+    if not message:
+        return jsonify({"reply": "Please type a message."}), 400
+
+    text = message.lower()
+    business = require_active_business()
+    if business is None:
+        products = []
+    else:
+        products = Product.query.filter_by(
+            business_id=business.id
+        ).all()
+
+    # -------------------------------------------------
+    # ORDER SESSION HELPERS
+    # -------------------------------------------------
+    order_keys = [
+        "pending_order_product",
+        "pending_order_quantity",
+        "pending_order_name",
+        "pending_order_phone"
+    ]
+
+    def clear_order_session():
+        for key in order_keys:
+            session.pop(key, None)
+
+    # -------------------------------------------------
+    # START / RESTART ORDER
+    # -------------------------------------------------
+    order_words = [
+        "order", "orders", "booking", "purchase",
+        "buy", "chahiye", "chahta", "chahti",
+        "mangwana", "mangwa do", "khareedna",
+        "kharidna"
+    ]
+
+    is_order = any(word in text for word in order_words)
+
+    # If customer sends a NEW order request, always restart
+    # the order conversation so stale session data cannot
+    # turn the new order message into an address.
+    if is_order:
+        clear_order_session()
+
+        matched_product = None
+
+        # Exact product name
+        for product in products:
+            if product.name.lower() in text:
+                matched_product = product
+                break
+
+        # Product name parts
+        if not matched_product:
+            for product in products:
+                product_words = product.name.lower().split()
+                if any(
+                    len(word) >= 4 and word in text
+                    for word in product_words
+                ):
+                    matched_product = product
+                    break
+
+        if not matched_product:
+            return jsonify({
+                "reply": (
+                    "Kaunsa product order karna hai?\n\n"
+                    + "\n".join(
+                        f"• {p.name} — Rs. {p.price:.0f}"
+                        for p in products
+                    )
+                )
+            })
+
+        # Quantity detection
+        quantity = None
+
+        number_match = re.search(
+            r"\b(\d{1,4})\b",
+            text
+        )
+
+        if number_match:
+            quantity = int(number_match.group(1))
+
+        quantity_words = {
+            "one": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+            "six": 6,
+            "seven": 7,
+            "eight": 8,
+            "nine": 9,
+            "ten": 10,
+            "ek": 1,
+            "do": 2,
+            "teen": 3,
+            "char": 4,
+            "paanch": 5,
+            "chhe": 6,
+            "che": 6,
+            "saat": 7,
+            "aath": 8,
+            "nau": 9,
+            "das": 10
+        }
+
+        if quantity is None:
+            for word, value in quantity_words.items():
+                if re.search(r"\b" + re.escape(word) + r"\b", text):
+                    quantity = value
+                    break
+
+        if quantity is None:
+            quantity = 1
+
+        if quantity < 1 or quantity > 1000:
+            return jsonify({
+                "reply": "Quantity 1 se 1000 ke darmiyan honi chahiye."
+            })
+
+        session["pending_order_product"] = matched_product.id
+        session["pending_order_quantity"] = quantity
+        session.pop("pending_order_name", None)
+        session.pop("pending_order_phone", None)
+
+        total = matched_product.price * quantity
+
+        return jsonify({
+            "reply": (
+                f"🛒 Product: {matched_product.name}\n"
+                f"Quantity: {quantity}\n"
+                f"Total: Rs. {total:.0f}\n\n"
+                f"Order continue karne ke liye apna naam batayein."
+            )
+        })
+
+    # -------------------------------------------------
+    # EXISTING ORDER: CUSTOMER NAME
+    # -------------------------------------------------
+    pending_product = session.get("pending_order_product")
+    pending_quantity = session.get("pending_order_quantity")
+    pending_name = session.get("pending_order_name")
+    pending_phone = session.get("pending_order_phone")
+
+    if pending_product and pending_quantity and not pending_name:
+        name = message.strip()
+
+        if len(name) < 2 or len(name) > 120:
+            return jsonify({
+                "reply": "Please apna valid naam batayein."
+            })
+
+        product = Product.query.filter_by(id=pending_product).first()
+
+        if not product:
+            clear_order_session()
+            return jsonify({
+                "reply": "Product available nahi hai. Dobara order start karein."
+            })
+
+        session["pending_order_name"] = name
+
+        total = product.price * int(pending_quantity)
+
+        return jsonify({
+            "reply": (
+                f"Name: {name}\n"
+                f"Product: {product.name}\n"
+                f"Quantity: {pending_quantity}\n"
+                f"Total: Rs. {total:.0f}\n\n"
+                f"Ab apna mobile number batayein."
+            )
+        })
+
+    # -------------------------------------------------
+    # EXISTING ORDER: PHONE
+    # -------------------------------------------------
+    if pending_product and pending_quantity and pending_name and not pending_phone:
+        phone = message.strip()
+        phone_digits = re.sub(r"\D", "", phone)
+
+        if len(phone_digits) < 10 or len(phone_digits) > 15:
+            return jsonify({
+                "reply": "Please valid mobile number batayein. Example: 03001234567"
+            })
+
+        session["pending_order_phone"] = phone
+
+        return jsonify({
+            "reply": (
+                f"Customer name: {pending_name}\n"
+                f"Phone: {phone}\n\n"
+                f"Ab delivery address batayein."
+            )
+        })
+
+    # -------------------------------------------------
+    # EXISTING ORDER: ADDRESS + CREATE ORDER
+    # -------------------------------------------------
+    if pending_product and pending_quantity and pending_name and pending_phone:
+        address = message.strip()
+
+        if len(address) < 3 or len(address) > 300:
+            return jsonify({
+                "reply": "Please apna complete delivery address batayein."
+            })
+
+        product = Product.query.filter_by(id=pending_product).first()
+
+        if not product:
+            clear_order_session()
+            return jsonify({
+                "reply": "Product available nahi hai. Dobara order start karein."
+            })
+
+        quantity = int(pending_quantity)
+        total = product.price * quantity
+
+        order = Order(
+            customer_name=pending_name,
+            customer_phone=pending_phone,
+            customer_address=address,
+            product_name=product.name,
+            quantity=quantity,
+            amount=total,
+            status="Pending"
+        )
+
+        db.session.add(order)
+        db.session.commit()
+
+        order_id = order.id
+
+        customer_name = pending_name
+        customer_phone = pending_phone
+
+        # IMPORTANT:
+        # Clear every pending field after successful order.
+        clear_order_session()
+
+        return jsonify({
+            "reply": (
+                f"✅ Order successfully receive ho gaya!\n\n"
+                f"Order ID: #{order_id}\n"
+                f"Customer: {customer_name}\n"
+                f"Phone: {customer_phone}\n"
+                f"Product: {product.name}\n"
+                f"Quantity: {quantity}\n"
+                f"Total: Rs. {total:.0f}\n"
+                f"Address: {address}\n"
+                f"Status: Pending\n\n"
+                f"Business team aapke order ko process karegi."
+            ),
+            "order_id": order_id
+        })
+
+    # -------------------------------------------------
+    # PRODUCT / PRICE INFORMATION
+    # -------------------------------------------------
+    if any(word in text for word in [
+        "price", "rate", "cost", "kitne", "kitni",
+        "qeemat", "keemat", "daam"
+    ]):
+        for product in products:
+            if product.name.lower() in text:
+                return jsonify({
+                    "reply": (
+                        f"{product.name} ki price "
+                        f"Rs. {product.price:.0f} hai."
+                    )
+                })
+
+        if products:
+            return jsonify({
+                "reply": (
+                    "Available products:\n\n" +
+                    "\n".join(
+                        f"• {p.name} — Rs. {p.price:.0f}"
+                        for p in products
+                    )
+                )
+            })
+
+        return jsonify({
+            "reply": "Abhi koi product available nahi hai."
+        })
+
+    # -------------------------------------------------
+    # PRODUCT LIST
+    # -------------------------------------------------
+    if any(word in text for word in [
+        "products", "product", "items",
+        "kya kya hai", "available"
+    ]):
+        if products:
+            return jsonify({
+                "reply": (
+                    "Available products:\n\n" +
+                    "\n".join(
+                        f"• {p.name} — Rs. {p.price:.0f}"
+                        for p in products
+                    )
+                )
+            })
+
+        return jsonify({
+            "reply": "Abhi koi product available nahi hai."
+        })
+
+    # -------------------------------------------------
+    # GREETING
+    # -------------------------------------------------
+    if any(word in text for word in [
+        "hello", "hi", "hey", "salam",
+        "assalam", "aoa"
+    ]):
+        return jsonify({
+            "reply": (
+                "Hello! 👋 Main aapka AI Business Assistant hoon. "
+                "Products, prices, orders, delivery ya complaints "
+                "ke baare mein pooch sakte hain."
+            )
+        })
+
+    # -------------------------------------------------
+    # ORDER STATUS / GENERAL ORDER QUESTION
+    # -------------------------------------------------
+    if any(word in text for word in [
+        "order status", "order ka status",
+        "mera order", "my order"
+    ]):
+        return jsonify({
+            "reply": (
+                "Aap apna Order ID batayein, "
+                "business team order status check kar sakti hai."
+            )
+        })
+
+    # -------------------------------------------------
+    # DELIVERY
+    # -------------------------------------------------
+    if any(word in text for word in [
+        "delivery", "deliver", "shipping",
+        "bhejna", "pohanch"
+    ]):
+        return jsonify({
+            "reply": (
+                "Delivery business team order confirm hone ke baad "
+                "customer ke address par arrange karegi."
+            )
+        })
+
+    # -------------------------------------------------
+    # COMPLAINT / SUPPORT
+    # -------------------------------------------------
+    if any(word in text for word in [
+        "complaint", "problem", "issue",
+        "masla", "shikayat", "support"
+    ]):
+        return jsonify({
+            "reply": (
+                "Ji, aap apni complaint ya problem detail mein "
+                "batayein. Business team usay handle karegi."
+            )
+        })
+
+    # -------------------------------------------------
+    # DEFAULT
+    # -------------------------------------------------
+    return jsonify({
+        "reply": (
+            "Ji, main aapki help kar sakta hoon. "
+            "Products, prices, orders, delivery ya complaints "
+            "ke baare mein poochhein."
+        )
+    })
+
+
+
+
+@app.route("/api/ai-insights", methods=["GET"])
+def ai_business_insights():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    business = require_active_business()
+    if business is None:
+        products = []
+    else:
+        products = Product.query.filter_by(
+            business_id=business.id
+        ).all()
+    business = require_active_business()
+    if business is None:
+        leads = []
+    else:
+        leads = Lead.query.filter_by(
+            business_id=business.id
+        ).all()
+    business = require_active_business()
+    if business is None:
+        orders = []
+    else:
+        orders = Order.query.filter_by(
+            business_id=business.id
+        ).all()
+
+    total_revenue = sum(float(o.amount or 0) for o in orders)
+    pending_orders = sum(1 for o in orders if o.status == "Pending")
+    processing_orders = sum(1 for o in orders if o.status == "Processing")
+    completed_orders = sum(1 for o in orders if o.status == "Completed")
+    cancelled_orders = sum(1 for o in orders if o.status == "Cancelled")
+
+    converted_leads = sum(
+        1 for lead in leads
+        if str(lead.status).lower() in ("converted", "customer")
+    )
+
+    product_sales = {}
+    for order in orders:
+        name = order.product_name or "Unknown"
+        product_sales[name] = product_sales.get(name, 0) + int(order.quantity or 0)
+
+    top_product = None
+    if product_sales:
+        top_product = max(product_sales, key=product_sales.get)
+
+    insights = []
+    recommendations = []
+
+    if pending_orders:
+        insights.append(
+            f"You have {pending_orders} pending order(s) that need attention."
+        )
+        recommendations.append(
+            "Review pending orders and contact customers to confirm delivery details."
+        )
+
+    if processing_orders:
+        insights.append(
+            f"{processing_orders} order(s) are currently being processed."
+        )
+
+    if completed_orders:
+        insights.append(
+            f"{completed_orders} order(s) have been completed."
+        )
+
+    if cancelled_orders:
+        insights.append(
+            f"{cancelled_orders} order(s) have been cancelled."
+        )
+
+    if top_product:
+        insights.append(
+            f"Your most ordered product is {top_product}."
+        )
+        recommendations.append(
+            f"Consider promoting {top_product} because it currently has the highest order quantity."
+        )
+
+    if leads and converted_leads:
+        insights.append(
+            f"{converted_leads} lead(s) are marked as converted."
+        )
+
+    if leads and not converted_leads:
+        recommendations.append(
+            "Follow up with your leads and update their status when they become customers."
+        )
+
+    if not products:
+        recommendations.append(
+            "Add your main products so customers can discover and order them."
+        )
+
+    if not insights:
+        insights.append(
+            "Your AI business assistant is ready. Add products, leads and orders to generate insights."
+        )
+
+    if not recommendations:
+        recommendations.append(
+            "Keep your products, leads and orders updated for better business insights."
+        )
+
+    return jsonify({
+        "status": "success",
+        "summary": {
+            "products": len(products),
+            "leads": len(leads),
+            "orders": len(orders),
+            "revenue": total_revenue,
+            "pending_orders": pending_orders,
+            "processing_orders": processing_orders,
+            "completed_orders": completed_orders,
+            "cancelled_orders": cancelled_orders,
+            "converted_leads": converted_leads,
+            "top_product": top_product
+        },
+        "insights": insights,
+        "recommendations": recommendations
+    })
+
+
+@app.route("/api/ai-followups", methods=["GET"])
+def ai_followups():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    followups = []
+
+    # Pending order follow-ups
+    business = require_active_business()
+    if business is None:
+        return jsonify({
+            "status": "success",
+            "followups": [],
+            "total": 0
+        })
+
+    pending_orders = Order.query.filter_by(
+        business_id=business.id,
+        status="Pending"
+    ).order_by(
+        Order.id.desc()
+    ).all()
+
+    for order in pending_orders:
+        customer = order.customer_name or "Customer"
+        phone = order.customer_phone or ""
+        address = order.customer_address or ""
+
+        message = (
+            f"Assalam-o-Alaikum {customer}, "
+            f"your order #{order.id} for {order.product_name} "
+            f"(Qty {order.quantity}, Rs {order.amount:g}) has been received. "
+            f"We are confirming your order and delivery details."
+        )
+
+        followups.append({
+            "type": "Order Follow-up",
+            "icon": "📦",
+            "customer": customer,
+            "phone": phone,
+            "order_id": order.id,
+            "message": message,
+            "reason": "Pending order needs confirmation."
+        })
+
+    # Lead follow-ups
+    business = require_active_business()
+    if business is None:
+        return jsonify([])
+
+    leads = Lead.query.filter_by(
+        business_id=business.id
+    ).order_by(Lead.id.desc()).all()
+
+    for lead in leads:
+        status = str(lead.status or "New").lower()
+
+        if status not in ("converted", "customer"):
+            customer = lead.name or "Customer"
+            phone = lead.phone or ""
+            requirement = lead.message or "your requirement"
+
+            message = (
+                f"Assalam-o-Alaikum {customer}, "
+                f"thank you for contacting us. "
+                f"We are following up regarding {requirement}. "
+                f"Please let us know if you would like more information or "
+                f"would like to place an order."
+            )
+
+            followups.append({
+                "type": "Lead Follow-up",
+                "icon": "👥",
+                "customer": customer,
+                "phone": phone,
+                "order_id": None,
+                "message": message,
+                "reason": "Lead has not been converted yet."
+            })
+
+    return jsonify({
+        "status": "success",
+        "total": len(followups),
+        "followups": followups
+    })
+
+
+
+def get_active_business():
+    business_id = session.get("active_business_id")
+
+    if business_id:
+        return db.session.get(Business, int(business_id))
+
+    return Business.query.order_by(Business.id.asc()).first()
+
+
+def active_business_or_error():
+    business = require_active_business()
+    if business is None:
+        return None, (jsonify({"error": "No active business"}), 400)
+    return business, None
+
+def require_active_business():
+    business = get_active_business()
+
+    if business is None:
+        return None
+
+    session["active_business_id"] = business.id
+    session["active_business_name"] = business.name
+
+    return business
+
+
+@app.route("/api/businesses", methods=["GET", "POST"])
+def api_businesses():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if request.method == "GET":
+        businesses = Business.query.order_by(Business.id.asc()).all()
+
+        return jsonify({
+            "status": "success",
+            "businesses": [
+                {
+                    "id": b.id,
+                    "name": b.name,
+                    "owner_name": b.owner_name or "",
+                    "phone": b.phone or "",
+                    "email": b.email or ""
+                }
+                for b in businesses
+            ]
+        })
+
+    data = request.get_json(silent=True) or {}
+
+    name = str(data.get("name", "")).strip()
+    owner_name = str(data.get("owner_name", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    email = str(data.get("email", "")).strip()
+
+    if not name:
+        return jsonify({
+            "error": "Business name is required."
+        }), 400
+
+    business = Business(
+        name=name,
+        owner_name=owner_name,
+        phone=phone,
+        email=email
+    )
+
+    db.session.add(business)
+    db.session.commit()
+
+    return jsonify({
+        "status": "success",
+        "business": {
+            "id": business.id,
+            "name": business.name,
+            "owner_name": business.owner_name or "",
+            "phone": business.phone or "",
+            "email": business.email or ""
+        }
+    }), 201
+
+
+@app.route("/api/businesses/<int:business_id>", methods=["GET"])
+def api_business_details(business_id):
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    business = db.session.get(Business, business_id)
+
+    if business is None:
+        return jsonify({"error": "Business not found."}), 404
+
+    return jsonify({
+        "status": "success",
+        "business": {
+            "id": business.id,
+            "name": business.name,
+            "owner_name": business.owner_name or "",
+            "phone": business.phone or "",
+            "email": business.email or ""
+        }
+    })
+
+
+@app.route("/api/businesses/activate/<int:business_id>", methods=["POST"])
+def activate_business(business_id):
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    business = db.session.get(Business, business_id)
+
+    if business is None:
+        return jsonify({"error": "Business not found."}), 404
+
+    session["active_business_id"] = business.id
+    session["active_business_name"] = business.name
+
+    return jsonify({
+        "status": "success",
+        "active_business": {
+            "id": business.id,
+            "name": business.name
+        }
+    })
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)

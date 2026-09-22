@@ -1,0 +1,27 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.production.example
+
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+*.log
+.DS_Store
+debug=True
+
+# Redis local data
+dump.rdb
+
+# Local secrets
+.env
+.en
+
+# Local backups
+*backup*
+*.bak
+*.backup

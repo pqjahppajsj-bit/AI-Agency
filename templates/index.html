@@ -1,0 +1,2236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agency</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7f6;color:#17211e}
+.header{background:#075c43;color:white;padding:28px 20px}
+.header h1{margin:0;font-size:30px}
+.header p{margin:8px 0 0;opacity:.85}
+.container{max-width:900px;margin:auto;padding:20px}
+.status{background:white;border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:0 4px 15px #0001}
+.online{color:#078557;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.card{background:white;border:0;border-radius:18px;padding:20px;text-align:left;box-shadow:0 4px 15px #0001}
+.card h3{margin:8px 0}
+.card p{color:#65716d}
+.chat{margin-top:20px;background:white;border-radius:18px;padding:20px;box-shadow:0 4px 15px #0001}
+#messages{min-height:120px;max-height:300px;overflow:auto;margin-bottom:12px}
+.msg{padding:10px 13px;border-radius:12px;margin:8px 0;background:#eef4f1}
+.user{background:#dcefe8}
+.row{display:flex;gap:8px}
+input{flex:1;padding:14px;border:1px solid #ccd7d3;border-radius:12px;font-size:16px}
+button{border:0;background:#075c43;color:white;padding:14px 20px;border-radius:12px;font-weight:bold}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.row{flex-direction:column}}
+
+<style>
+.pro-nav{
+    position:sticky;
+    top:0;
+    z-index:1000;
+    background:#ffffff;
+    border-bottom:1px solid #dfe7e4;
+    padding:10px;
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    box-shadow:0 2px 10px #0001;
+}
+.pro-nav button{
+    white-space:nowrap;
+    padding:10px 14px;
+    border-radius:10px;
+    background:#075c43;
+    color:white;
+}
+</style>
+
+</style>
+
+<style>
+/* AI INSIGHTS READABILITY FIX */
+#aiInsights{
+    color:#f4fffc !important;
+}
+
+#aiInsights h2{
+    color:#f4fffc !important;
+}
+
+#aiInsights p{
+    color:#a9c0ba !important;
+}
+
+#aiInsights strong{
+    color:#f4fffc !important;
+}
+
+#aiInsights .ai-stat{
+    color:#f4fffc !important;
+}
+
+#aiInsights .ai-stat-label{
+    color:#a9c0ba !important;
+}
+
+#aiInsightList div{
+    color:#dff5ef !important;
+}
+
+#aiRecommendations{
+    margin-top:18px;
+    padding-top:18px;
+    border-top:1px solid rgba(255,255,255,.09);
+}
+
+#aiRecommendations h3{
+    color:#00d99b !important;
+    margin-bottom:10px;
+}
+
+.ai-recommendation{
+    color:#dff5ef !important;
+    background:rgba(0,217,155,.08);
+    border:1px solid rgba(0,217,155,.15);
+    border-radius:10px;
+    padding:13px 15px;
+    margin-top:9px;
+}
+
+#aiInsights button{
+    background:#00d99b !important;
+    color:#00140f !important;
+}
+</style>
+
+
+<script>
+(function () {
+    const originalFetch = window.fetch;
+
+    function getCsrfToken() {
+        const prefix = "ai_agency_csrf=";
+        const item = document.cookie
+            .split("; ")
+            .find(row => row.startsWith(prefix));
+
+        return item ? decodeURIComponent(item.substring(prefix.length)) : "";
+    }
+
+    window.fetch = function (input, init) {
+        init = init || {};
+        const method = (init.method || "GET").toUpperCase();
+
+        if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+            init.headers = new Headers(init.headers || {});
+            const token = getCsrfToken();
+
+            if (token) {
+                init.headers.set("X-CSRF-Token", token);
+            }
+        }
+
+        return originalFetch(input, init);
+    };
+})();
+</script>
+
+</head>
+<body>
+
+<header class="header">
+<div class="container">
+<h1>AI Agency</h1>
+<p>Your intelligent business assistant</p>
+</div>
+</header>
+
+
+<nav class="pro-nav">
+    <button onclick="scrollToSection('dashboardArea')">📊 Dashboard</button>
+    <button onclick="scrollToSection('productsArea')">📦 Products</button>
+    <button onclick="scrollToSection('leadsArea')">👥 Customers</button>
+    <button onclick="scrollToSection('ordersArea')">🛒 Orders</button>
+    <button onclick="scrollToSection('aiArea')">🤖 AI</button>
+</nav>
+
+<main class="container">
+
+<div class="status">
+<span class="online">● System Online</span>
+<p>Manage customers, products, leads and AI conversations.</p>
+</div>
+
+<div class="grid">
+<div class="card"><div>🤖</div><h3>AI Assistant</h3><p>Answer customer questions automatically.</p></div>
+<div class="card"><div>📦</div><h3>Products</h3><p>Manage your products and prices.</p></div>
+<div class="card"><div>👥</div><h3>Leads</h3><p>Capture and manage potential customers.</p></div>
+<div class="card"><div>📊</div><h3>Business Dashboard</h3><p>Monitor your business activity.</p></div>
+</div>
+
+<section class="chat" id="aiArea">
+<h2>💬 AI Customer Assistant</h2>
+<div id="messages">
+<div class="msg">Hello! I'm your AI Business Assistant. How can I help?</div>
+</div>
+
+<div class="row">
+<input id="message" placeholder="Type your message..." autocomplete="off">
+<button onclick="sendMessage()">Send</button>
+</div>
+</section>
+
+</main>
+
+<script>
+async function sendMessage(){
+const input=document.getElementById("message");
+const box=document.getElementById("messages");
+const message=input.value.trim();
+
+if(!message)return;
+
+box.innerHTML+=`<div class="msg user">${escapeHtml(message)}</div>`;
+input.value="";
+
+const loading=document.createElement("div");
+loading.className="msg";
+loading.textContent="AI is thinking...";
+box.appendChild(loading);
+box.scrollTop=box.scrollHeight;
+
+try{
+const response=await fetch("/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({message})
+});
+
+const data=await response.json();
+loading.textContent=data.reply || "No response received.";
+}catch(error){
+loading.textContent="Connection error. Please try again.";
+}
+
+box.scrollTop=box.scrollHeight;
+}
+
+function escapeHtml(text){
+const div=document.createElement("div");
+div.textContent=text;
+return div.innerHTML;
+}
+
+document.getElementById("message").addEventListener("keydown",function(e){
+if(e.key==="Enter")sendMessage();
+});
+</script>
+
+
+<script>
+function scrollToSection(id){
+    const element=document.getElementById(id);
+    if(element){
+        element.scrollIntoView({
+            behavior:"smooth",
+            block:"start"
+        });
+    }
+}
+</script>
+
+<script>
+function openProducts(){
+    const section = document.getElementById("manageProducts");
+    if(section){
+        loadManageProducts();
+        section.scrollIntoView({behavior:"smooth", block:"start"});
+    }
+}
+</script>
+
+<!-- AI BUSINESS INSIGHTS -->
+<section id="aiInsights" style="
+    margin:24px 0;
+    padding:24px;
+    border-radius:18px;
+    background:#09231e;
+    border:1px solid rgba(0,217,155,.22);
+">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;">
+        <div>
+            <div style="font-size:13px;color:#00d99b;font-weight:700;">🤖 AI BUSINESS ASSISTANT</div>
+            <h2 style="margin:5px 0;">Smart Business Insights</h2>
+            <p style="margin:0;color:#8fa9a2;">
+                AI-generated summary from your business activity.
+            </p>
+        </div>
+
+        <button onclick="loadAIInsights()" style="
+            padding:11px 18px;
+            border:0;
+            border-radius:10px;
+            cursor:pointer;
+            font-weight:700;
+        ">✨ Analyze Business</button>
+    </div>
+
+    <div id="aiInsightStats" style="
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+        gap:12px;
+        margin-top:20px;
+    "></div>
+
+    <div id="aiInsightList" style="margin-top:18px;">
+        <div style="color:#a9c0ba;">Click “Analyze Business” to generate insights.</div>
+    </div>
+
+    <div id="aiRecommendations">
+        <h3>💡 AI Recommendations</h3>
+        <div id="aiRecommendationList">
+            <div style="color:#a9c0ba;">
+                Recommendations will appear after analysis.
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+async function loadAIInsights(){
+    const stats = document.getElementById("aiInsightStats");
+    const list = document.getElementById("aiInsightList");
+
+    stats.innerHTML = '<div style="color:#8fa9a2;">Analyzing...</div>';
+    list.innerHTML = '';
+
+    try{
+        const response = await fetch("/api/ai-insights");
+
+        if(!response.ok){
+            throw new Error("Unable to load AI insights");
+        }
+
+        const data = await response.json();
+        const s = data.summary || {};
+
+        const cards = [
+            ["🛒 Orders", s.orders || 0],
+            ["👥 Leads", s.leads || 0],
+            ["💰 Revenue", "Rs " + Number(s.revenue || 0).toLocaleString()],
+            ["⏳ Pending", s.pending_orders || 0],
+            ["✅ Completed", s.completed_orders || 0],
+            ["🎯 Converted", s.converted_leads || 0]
+        ];
+
+        stats.innerHTML = cards.map(item => `
+            <div style="
+                padding:15px;
+                border-radius:12px;
+                background:rgba(255,255,255,.04);
+                border:1px solid rgba(255,255,255,.07);
+            ">
+                <div style="font-size:12px;color:#8fa9a2;">${item[0]}</div>
+                <strong style="display:block;margin-top:5px;font-size:20px;">
+                    ${item[1]}
+                </strong>
+            </div>
+        `).join("");
+
+        list.innerHTML = (data.insights || []).map(text => `
+            <div style="
+                padding:13px 15px;
+                margin-top:9px;
+                border-radius:10px;
+                background:rgba(0,217,155,.07);
+                border-left:3px solid #00d99b;
+                color:#dff5ef;
+            ">
+                🤖 ${text}
+            </div>
+        `).join("");
+
+        const recommendationList =
+            document.getElementById("aiRecommendationList");
+
+        recommendationList.innerHTML =
+            (data.recommendations || []).map(text => `
+                <div class="ai-recommendation">
+                    💡 ${text}
+                </div>
+            `).join("");
+
+    }catch(error){
+        stats.innerHTML = "";
+        list.innerHTML = `
+            <div style="color:#ff8f8f;">
+                ⚠️ ${error.message}
+            </div>
+        `;
+    }
+}
+</script>
+
+
+<!-- AI CUSTOMER FOLLOW-UP CENTER -->
+<section id="aiFollowups" style="
+    margin:24px 0;
+    padding:24px;
+    border-radius:18px;
+    background:#09231e;
+    border:1px solid rgba(0,217,155,.22);
+    color:#f4fffc;
+">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:15px;
+        flex-wrap:wrap;
+    ">
+
+        <div>
+            <div style="
+                color:#00d99b;
+                font-size:13px;
+                font-weight:700;
+            ">
+                🤖 AI CUSTOMER AUTOMATION
+            </div>
+
+            <h2 style="
+                margin:5px 0;
+                color:#f4fffc;
+            ">
+                Customer Follow-up Center
+            </h2>
+
+            <p style="
+                margin:0;
+                color:#a9c0ba;
+            ">
+                AI-generated messages for pending orders and leads.
+            </p>
+        </div>
+
+        <button onclick="loadAIFollowups()" style="
+            background:#00d99b;
+            color:#00140f;
+            border:0;
+            border-radius:10px;
+            padding:11px 18px;
+            font-weight:700;
+            cursor:pointer;
+        ">
+            🤖 Generate Follow-ups
+        </button>
+
+    </div>
+
+    <div id="aiFollowupStatus" style="
+        margin-top:18px;
+        color:#a9c0ba;
+    ">
+        Click “Generate Follow-ups” to create customer messages.
+    </div>
+
+    <div id="aiFollowupList" style="
+        margin-top:15px;
+        display:grid;
+        gap:12px;
+    "></div>
+
+</section>
+
+<script>
+async function loadAIFollowups(){
+
+    const status = document.getElementById("aiFollowupStatus");
+    const list = document.getElementById("aiFollowupList");
+
+    status.innerHTML = "🤖 Generating customer follow-ups...";
+    list.innerHTML = "";
+
+    try{
+
+        const response = await fetch("/api/ai-followups");
+
+        if(!response.ok){
+            throw new Error("Unable to generate follow-ups");
+        }
+
+        const data = await response.json();
+
+        status.innerHTML =
+            "📋 " + (data.total || 0) +
+            " follow-up message(s) generated.";
+
+        if(!data.followups || data.followups.length === 0){
+
+            list.innerHTML = `
+                <div style="
+                    padding:18px;
+                    border-radius:12px;
+                    background:rgba(255,255,255,.04);
+                    color:#a9c0ba;
+                ">
+                    ✅ No follow-ups are currently required.
+                </div>
+            `;
+
+            return;
+        }
+
+        list.innerHTML = data.followups.map((item, index) => `
+
+            <div style="
+                padding:18px;
+                border-radius:14px;
+                background:rgba(0,217,155,.06);
+                border:1px solid rgba(255,255,255,.08);
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    gap:10px;
+                    flex-wrap:wrap;
+                ">
+
+                    <div>
+                        <strong style="
+                            color:#f4fffc;
+                            font-size:17px;
+                        ">
+                            ${item.icon} ${item.type}
+                        </strong>
+
+                        <div style="
+                            margin-top:5px;
+                            color:#a9c0ba;
+                        ">
+                            👤 ${item.customer}
+                            ${item.phone ? " • 📱 " + item.phone : ""}
+                            ${item.order_id ? " • 📦 Order #" + item.order_id : ""}
+                        </div>
+                    </div>
+
+                </div>
+
+                <div style="
+                    margin-top:12px;
+                    padding:14px;
+                    border-radius:10px;
+                    background:rgba(0,0,0,.18);
+                    color:#e4f5f0;
+                    line-height:1.6;
+                ">
+                    ${item.message}
+                </div>
+
+                <div style="
+                    display:flex;
+                    gap:10px;
+                    flex-wrap:wrap;
+                    margin-top:12px;
+                ">
+
+                    <button
+                        onclick="copyAIFollowup(${index})"
+                        style="
+                            background:#00d99b;
+                            color:#00140f;
+                            border:0;
+                            border-radius:9px;
+                            padding:9px 14px;
+                            font-weight:700;
+                            cursor:pointer;
+                        ">
+                        📋 Copy Message
+                    </button>
+
+                    ${item.phone ? `
+                    <a
+                        href="tel:${item.phone}"
+                        style="
+                            display:inline-block;
+                            background:rgba(255,255,255,.08);
+                            color:#f4fffc;
+                            border:1px solid rgba(255,255,255,.12);
+                            border-radius:9px;
+                            padding:9px 14px;
+                            font-weight:700;
+                        ">
+                        📞 Call Customer
+                    </a>
+
+                    <button
+                        onclick="openAIWhatsApp(${index})"
+                        style="
+                            background:#25D366;
+                            color:#00140f;
+                            border:0;
+                            border-radius:9px;
+                            padding:9px 14px;
+                            font-weight:700;
+                            cursor:pointer;
+                        ">
+                        💬 WhatsApp
+                    </button>
+                    ` : ""}
+
+                </div>
+
+            </div>
+
+        `).join("");
+
+        window.currentAIFollowups = data.followups;
+
+    }catch(error){
+
+        status.innerHTML = `
+            <span style="color:#ff9999;">
+                ⚠️ ${error.message}
+            </span>
+        `;
+
+    }
+}
+
+function openAIWhatsApp(index){
+
+    const item = window.currentAIFollowups &&
+                 window.currentAIFollowups[index];
+
+    if(!item || !item.phone){
+        alert("Customer phone number is not available.");
+        return;
+    }
+
+    let phone = String(item.phone).replace(/\\D/g, "");
+
+    // Pakistan local format:
+    // 03001234567 -> 923001234567
+    if(phone.startsWith("0")){
+        phone = "92" + phone.substring(1);
+    }
+
+    // If user stored 92 without +
+    if(phone.startsWith("92")){
+        // already correct
+    }
+
+    const message = encodeURIComponent(item.message);
+
+    const whatsappUrl =
+        "https://wa.me/" + phone + "?text=" + message;
+
+    window.open(whatsappUrl, "_blank");
+}
+
+
+async function copyAIFollowup(index){
+
+    const item = window.currentAIFollowups &&
+                 window.currentAIFollowups[index];
+
+    if(!item){
+        return;
+    }
+
+    try{
+
+        await navigator.clipboard.writeText(item.message);
+
+        alert("✅ Message copied!");
+
+    }catch(error){
+
+        alert("Please select and copy the message manually.");
+
+    }
+}
+</script>
+
+
+<!-- BUSINESS MANAGEMENT -->
+<section id="businessManagement" style="
+    margin:24px 0;
+    padding:24px;
+    border-radius:18px;
+    background:#09231e;
+    border:1px solid rgba(0,217,155,.22);
+    color:#f4fffc;
+">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:15px;
+        flex-wrap:wrap;
+    ">
+
+        <div>
+            <div style="
+                color:#00d99b;
+                font-size:13px;
+                font-weight:700;
+            ">
+                🏢 AI AGENCY PLATFORM
+            </div>
+
+            <h2 style="
+                margin:5px 0;
+                color:#f4fffc;
+            ">
+                Business Accounts
+            </h2>
+
+            <p style="
+                margin:0;
+                color:#a9c0ba;
+            ">
+                Manage businesses connected to your AI Agency platform.
+            </p>
+        </div>
+
+        <button onclick="loadBusinesses()" style="
+            background:#00d99b;
+            color:#00140f;
+            border:0;
+            border-radius:10px;
+            padding:11px 18px;
+            font-weight:700;
+            cursor:pointer;
+        ">
+            🔄 Refresh
+        </button>
+
+    </div>
+
+    <div id="activeBusinessBox" style="
+        margin-top:18px;
+        padding:15px;
+        border-radius:12px;
+        background:rgba(0,217,155,.08);
+        color:#dff5ef;
+    ">
+        🏢 Loading active business...
+    </div>
+
+    <div style="
+        margin-top:20px;
+        padding:18px;
+        border-radius:14px;
+        background:rgba(255,255,255,.035);
+    ">
+
+        <h3 style="
+            color:#00d99b;
+            margin-bottom:14px;
+        ">
+            ➕ Add Business
+        </h3>
+
+        <div style="
+            display:grid;
+            gap:10px;
+        ">
+
+            <input
+                id="newBusinessName"
+                placeholder="Business name"
+                style="
+                    padding:12px;
+                    border-radius:9px;
+                    border:1px solid rgba(255,255,255,.12);
+                    background:#061914;
+                    color:#f4fffc;
+                "
+            >
+
+            <input
+                id="newBusinessOwner"
+                placeholder="Owner name"
+                style="
+                    padding:12px;
+                    border-radius:9px;
+                    border:1px solid rgba(255,255,255,.12);
+                    background:#061914;
+                    color:#f4fffc;
+                "
+            >
+
+            <input
+                id="newBusinessPhone"
+                placeholder="Phone number"
+                style="
+                    padding:12px;
+                    border-radius:9px;
+                    border:1px solid rgba(255,255,255,.12);
+                    background:#061914;
+                    color:#f4fffc;
+                "
+            >
+
+            <input
+                id="newBusinessEmail"
+                placeholder="Email (optional)"
+                style="
+                    padding:12px;
+                    border-radius:9px;
+                    border:1px solid rgba(255,255,255,.12);
+                    background:#061914;
+                    color:#f4fffc;
+                "
+            >
+
+            <button onclick="createBusiness()" style="
+                background:#00d99b;
+                color:#00140f;
+                border:0;
+                border-radius:9px;
+                padding:12px;
+                font-weight:700;
+                cursor:pointer;
+            ">
+                🏢 Create Business
+            </button>
+
+        </div>
+
+    </div>
+
+    <div id="businessList" style="
+        margin-top:18px;
+        display:grid;
+        gap:12px;
+    ">
+        Loading businesses...
+    </div>
+
+</section>
+
+<script>
+
+async function loadBusinesses(){
+
+    const list = document.getElementById("businessList");
+    const active = document.getElementById("activeBusinessBox");
+
+    list.innerHTML = "Loading businesses...";
+
+    try{
+
+        const response = await fetch("/api/businesses");
+
+        if(!response.ok){
+            throw new Error("Unable to load businesses");
+        }
+
+        const data = await response.json();
+
+        const businesses = data.businesses || [];
+
+        const activeId =
+            Number(localStorage.getItem("activeBusinessId") || 0);
+
+        if(activeId){
+
+            const activeBusiness =
+                businesses.find(b => b.id === activeId);
+
+            if(activeBusiness){
+
+                active.innerHTML =
+                    "🏢 <strong>Active Business:</strong> " +
+                    activeBusiness.name;
+            }
+        }
+
+        if(!businesses.length){
+
+            list.innerHTML = `
+                <div style="
+                    padding:16px;
+                    color:#a9c0ba;
+                ">
+                    No businesses found.
+                </div>
+            `;
+
+            return;
+        }
+
+        list.innerHTML = businesses.map(b => {
+
+            const isActive = Number(b.id) === activeId;
+
+            return `
+                <div style="
+                    padding:17px;
+                    border-radius:13px;
+                    background:rgba(0,217,155,.05);
+                    border:1px solid ${
+                        isActive
+                        ? "rgba(0,217,155,.5)"
+                        : "rgba(255,255,255,.08)"
+                    };
+                ">
+
+                    <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        gap:10px;
+                        flex-wrap:wrap;
+                    ">
+
+                        <div>
+                            <strong style="
+                                font-size:18px;
+                                color:#f4fffc;
+                            ">
+                                🏢 ${b.name}
+                            </strong>
+
+                            <div style="
+                                margin-top:5px;
+                                color:#a9c0ba;
+                            ">
+                                👤 ${b.owner_name || "Owner not set"}
+                            </div>
+
+                            ${b.phone ? `
+                            <div style="color:#a9c0ba;">
+                                📱 ${b.phone}
+                            </div>
+                            ` : ""}
+
+                            ${b.email ? `
+                            <div style="color:#a9c0ba;">
+                                ✉️ ${b.email}
+                            </div>
+                            ` : ""}
+                        </div>
+
+                        <button
+                            onclick="activateBusiness(${b.id}, '${String(b.name).replace(/'/g, "\\'")}')"
+                            style="
+                                align-self:center;
+                                background:${
+                                    isActive
+                                    ? "#173f34"
+                                    : "#00d99b"
+                                };
+                                color:${
+                                    isActive
+                                    ? "#8ff0d0"
+                                    : "#00140f"
+                                };
+                                border:0;
+                                border-radius:9px;
+                                padding:10px 15px;
+                                font-weight:700;
+                                cursor:pointer;
+                            ">
+                            ${
+                                isActive
+                                ? "✓ Active"
+                                : "Switch Business"
+                            }
+                        </button>
+
+                    </div>
+
+                </div>
+            `;
+
+        }).join("");
+
+    }catch(error){
+
+        list.innerHTML = `
+            <div style="color:#ff9999;">
+                ⚠️ ${error.message}
+            </div>
+        `;
+
+    }
+}
+
+
+async function createBusiness(){
+
+    const name =
+        document.getElementById("newBusinessName").value.trim();
+
+    const owner =
+        document.getElementById("newBusinessOwner").value.trim();
+
+    const phone =
+        document.getElementById("newBusinessPhone").value.trim();
+
+    const email =
+        document.getElementById("newBusinessEmail").value.trim();
+
+    if(!name){
+
+        alert("Please enter a business name.");
+        return;
+
+    }
+
+    try{
+
+        const response = await fetch("/api/businesses", {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                name:name,
+                owner_name:owner,
+                phone:phone,
+                email:email
+            })
+        });
+
+        const data = await response.json();
+
+        if(!response.ok){
+
+            throw new Error(
+                data.error || "Unable to create business"
+            );
+
+        }
+
+        document.getElementById("newBusinessName").value = "";
+        document.getElementById("newBusinessOwner").value = "";
+        document.getElementById("newBusinessPhone").value = "";
+        document.getElementById("newBusinessEmail").value = "";
+
+        alert("✅ Business created successfully.");
+
+        loadBusinesses();
+
+    }catch(error){
+
+        alert("⚠️ " + error.message);
+
+    }
+}
+
+
+async function activateBusiness(id, name){
+
+    try{
+
+        const response =
+            await fetch("/api/businesses/activate/" + id, {
+                method:"POST"
+            });
+
+        const data = await response.json();
+
+        if(!response.ok){
+
+            throw new Error(
+                data.error || "Unable to activate business"
+            );
+
+        }
+
+        localStorage.setItem(
+            "activeBusinessId",
+            String(data.active_business.id)
+        );
+
+        localStorage.setItem(
+            "activeBusinessName",
+            data.active_business.name
+        );
+
+        document.getElementById("activeBusinessBox").innerHTML =
+            "🏢 <strong>Active Business:</strong> " +
+            data.active_business.name;
+
+        loadBusinesses();
+
+    }catch(error){
+
+        alert("⚠️ " + error.message);
+
+    }
+}
+
+
+document.addEventListener("DOMContentLoaded", function(){
+
+    if(document.getElementById("businessManagement")){
+
+        loadBusinesses();
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
+
+<script>
+async function loadProducts(){
+    const response = await fetch("/products");
+    const products = await response.json();
+
+    let box = document.getElementById("productsList");
+
+    if(!box){
+        box = document.createElement("section");
+        box.className = "chat";
+        box.id = "productsList";
+        box.innerHTML = "<h2>📦 Products</h2><div id="publicProductsList"></div>";
+        document.querySelector("main").insertBefore(box, document.getElementById("productsArea"));
+    }
+
+    const list = document.getElementById("publicProductsList");
+
+    if(!products.length){
+        list.innerHTML = '<div class="msg">No products available.</div>';
+        return;
+    }
+
+    list.innerHTML = "";
+
+    products.forEach(p => {
+        list.innerHTML += `
+        <div class="msg">
+            <strong>${escapeHtml(p.name)}</strong><br>
+            Rs. ${Number(p.price).toLocaleString()}<br>
+            <small>${escapeHtml(p.description || "")}</small>
+        </div>`;
+    });
+}
+</script>
+
+<section class="chat">
+<h2>➕ Add Product</h2>
+
+<div class="row" style="margin-bottom:10px">
+<input id="productName" placeholder="Product name">
+</div>
+
+<div class="row" style="margin-bottom:10px">
+<input id="productPrice" type="number" placeholder="Price (PKR)">
+</div>
+
+<div class="row" style="margin-bottom:10px">
+<input id="productDescription" placeholder="Description">
+</div>
+
+<button onclick="addProduct()">Add Product</button>
+<div id="productResult" class="msg" style="display:none"></div>
+</section>
+
+<script>
+async function addProduct(){
+    const name=document.getElementById("productName").value.trim();
+    const price=document.getElementById("productPrice").value;
+    const description=document.getElementById("productDescription").value.trim();
+    const result=document.getElementById("productResult");
+
+    if(!name || !price){
+        result.style.display="block";
+        result.textContent="Product name and price are required.";
+        return;
+    }
+
+    try{
+        const response=await fetch("/products",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({name,price,description})
+        });
+
+        const data=await response.json();
+
+        result.style.display="block";
+        result.textContent=data.message || data.error;
+
+        if(response.ok){
+            document.getElementById("productName").value="";
+            document.getElementById("productPrice").value="";
+            document.getElementById("productDescription").value="";
+        }
+    }catch(error){
+        result.style.display="block";
+        result.textContent="Could not connect to server.";
+    }
+}
+</script>
+
+<section class="chat" id="leadsArea">
+<h2>👥 Add Customer / Lead</h2>
+
+<div class="row" style="margin-bottom:10px">
+<input id="leadName" placeholder="Customer name">
+</div>
+
+<div class="row" style="margin-bottom:10px">
+<input id="leadPhone" placeholder="Phone number">
+</div>
+
+<div class="row" style="margin-bottom:10px">
+<input id="leadMessage" placeholder="Customer requirement">
+</div>
+
+<button onclick="addLead()">Save Lead</button>
+
+<div id="leadResult" class="msg" style="display:none"></div>
+</section>
+
+<script>
+async function addLead(){
+    const name=document.getElementById("leadName").value.trim();
+    const phone=document.getElementById("leadPhone").value.trim();
+    const message=document.getElementById("leadMessage").value.trim();
+    const result=document.getElementById("leadResult");
+
+    if(!name){
+        result.style.display="block";
+        result.textContent="Customer name is required.";
+        return;
+    }
+
+    try{
+        const response=await fetch("/leads",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({name,phone,message})
+        });
+
+        const data=await response.json();
+
+        result.style.display="block";
+        result.textContent=data.message || data.error;
+
+        if(response.ok){
+            document.getElementById("leadName").value="";
+            document.getElementById("leadPhone").value="";
+            document.getElementById("leadMessage").value="";
+        }
+    }catch(error){
+        result.style.display="block";
+        result.textContent="Could not connect to server.";
+    }
+}
+</script>
+
+<section class="chat" id="dashboardArea">
+<h2>📊 Business Dashboard</h2>
+
+<div class="grid">
+<div class="card">
+<h3 id="productCount">0</h3>
+<p>Total Products</p>
+</div>
+
+<div class="card">
+<h3 id="leadCount">0</h3>
+<p>Total Leads</p>
+</div>
+</div>
+
+<button onclick="loadDashboard()">Refresh Dashboard</button>
+</section>
+
+<script>
+async function loadDashboard(){
+    try{
+        const productsResponse=await fetch("/products");
+        const products=await productsResponse.json();
+
+        const leadsResponse=await fetch("/leads");
+        const leads=await leadsResponse.json();
+
+        document.getElementById("productCount").textContent=products.length;
+        document.getElementById("leadCount").textContent=leads.length;
+    }catch(error){
+        console.log("Dashboard error:",error);
+    }
+}
+
+loadDashboard();
+</script>
+
+<section class="chat" id="leadsArea">
+<h2>📋 Customers & Leads</h2>
+
+<div id="leadSummary" style="margin-bottom:12px;">
+  <div class="msg">Loading customer summary...</div>
+</div>
+
+<div id="leadsList">
+  <div class="msg">Loading leads...</div>
+</div>
+
+<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+  <button onclick="loadLeads()">🔄 Refresh Leads</button>
+</div>
+</section>
+
+<script>
+async function loadLeads(){
+    const box = document.getElementById("leadsList");
+    const summary = document.getElementById("leadSummary");
+
+    if(!box) return;
+
+    box.innerHTML = '<div class="msg">Loading leads...</div>';
+
+    try{
+        const response = await fetch("/leads");
+        const leads = await response.json();
+
+        if(!response.ok){
+            throw new Error("Unable to load leads");
+        }
+
+        const total = leads.length;
+        const newLeads = leads.filter(x => x.status === "New").length;
+        const contacted = leads.filter(x => x.status === "Contacted").length;
+        const converted = leads.filter(x => x.status === "Converted").length;
+
+        if(summary){
+            summary.innerHTML = `
+            <div class="msg">
+                <strong>👥 Customer Summary</strong><br><br>
+                Total: <strong>${total}</strong>
+                &nbsp; • &nbsp;
+                🆕 New: <strong>${newLeads}</strong>
+                &nbsp; • &nbsp;
+                📞 Contacted: <strong>${contacted}</strong>
+                &nbsp; • &nbsp;
+                ✅ Converted: <strong>${converted}</strong>
+            </div>`;
+        }
+
+        if(!leads.length){
+            box.innerHTML = '<div class="msg">No customers or leads found.</div>';
+            return;
+        }
+
+        box.innerHTML = "";
+
+        leads.forEach(lead => {
+            const status = lead.status || "New";
+
+            box.innerHTML += `
+            <div class="msg" style="margin-bottom:10px;">
+                <strong>👤 ${escapeHtml(lead.name || "Unknown")}</strong><br>
+                📱 ${escapeHtml(lead.phone || "No phone")}<br>
+                💬 ${escapeHtml(lead.message || "No message")}<br><br>
+
+                <label>Status:</label>
+                <select id="leadStatus_${lead.id}">
+                    <option value="New" ${status==="New" ? "selected" : ""}>New</option>
+                    <option value="Contacted" ${status==="Contacted" ? "selected" : ""}>Contacted</option>
+                    <option value="Converted" ${status==="Converted" ? "selected" : ""}>Converted</option>
+                </select>
+
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="updateLeadStatus(${lead.id})">💾 Update Status</button>
+                    <button onclick="deleteLead(${lead.id})">🗑️ Delete</button>
+                </div>
+            </div>`;
+        });
+
+    }catch(error){
+        console.log("Leads error:", error);
+        box.innerHTML = '<div class="msg">Could not load customers.</div>';
+    }
+}
+
+async function updateLeadStatus(id){
+    const select = document.getElementById("leadStatus_" + id);
+
+    if(!select) return;
+
+    const status = select.value;
+
+    try{
+        const response = await fetch("/leads/" + id, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                status: status
+            })
+        });
+
+        const data = await response.json();
+
+        if(!response.ok){
+            alert(data.error || "Could not update lead status.");
+            return;
+        }
+
+        await loadLeads();
+
+        if(typeof loadDashboard === "function"){
+            loadDashboard();
+        }
+
+    }catch(error){
+        console.log("Update lead error:", error);
+        alert("Connection error.");
+    }
+}
+
+async function deleteLead(id){
+    if(!confirm("Delete this customer/lead?")) return;
+
+    try{
+        const response = await fetch("/leads/" + id, {
+            method: "DELETE"
+        });
+
+        const data = await response.json();
+
+        if(!response.ok){
+            alert(data.error || "Could not delete lead.");
+            return;
+        }
+
+        await loadLeads();
+
+        if(typeof loadDashboard === "function"){
+            loadDashboard();
+        }
+
+    }catch(error){
+        console.log("Delete lead error:", error);
+        alert("Connection error.");
+    }
+}
+
+loadLeads();
+</script>
+
+
+<section class="chat" id="productsArea">
+<h2>⚙️ Manage Products</h2>
+
+<div id="manageProducts">
+<div class="msg">Loading products...</div>
+</div>
+</section>
+
+<script>
+async function loadManageProducts(){
+    const box=document.getElementById("manageProducts");
+
+    try{
+        const response=await fetch("/products");
+        const products=await response.json();
+
+        if(!products.length){
+            box.innerHTML='<div class="msg">No products available.</div>';
+            return;
+        }
+
+        box.innerHTML="";
+
+        products.forEach(p=>{
+            box.innerHTML+=`
+            <div class="msg">
+                <strong>${escapeHtml(p.name)}</strong><br>
+                Rs. ${Number(p.price).toLocaleString()}<br>
+                <small>${escapeHtml(p.description || "")}</small>
+
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                    <button onclick="editProduct(${p.id}, '${escapeHtml(p.name).replace(/'/g,"&#39;")}', ${p.price}, '${escapeHtml(p.description || "").replace(/'/g,"&#39;")}')">
+                        ✏️ Edit
+                    </button>
+
+                    <button onclick="deleteProduct(${p.id})">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>`;
+        });
+
+    }catch(error){
+        box.innerHTML='<div class="msg">Could not load products.</div>';
+    }
+}
+
+async function editProduct(id,name,price,description){
+    const newName=prompt("Product name:",name);
+    if(newName===null)return;
+
+    const newPrice=prompt("Product price (PKR):",price);
+    if(newPrice===null)return;
+
+    const newDescription=prompt("Description:",description);
+    if(newDescription===null)return;
+
+    try{
+        const response=await fetch("/products/"+id,{
+            method:"PUT",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                name:newName,
+                price:newPrice,
+                description:newDescription
+            })
+        });
+
+        const data=await response.json();
+
+        if(response.ok){
+            alert("Product updated successfully.");
+            loadProducts();
+            loadManageProducts();
+            loadDashboard();
+        }else{
+            alert(data.error || "Update failed.");
+        }
+
+    }catch(error){
+        alert("Could not connect to server.");
+    }
+}
+
+async function deleteProduct(id){
+    if(!confirm("Delete this product?"))return;
+
+    try{
+        const response=await fetch("/products/"+id,{
+            method:"DELETE"
+        });
+
+        const data=await response.json();
+
+        if(response.ok){
+            alert("Product deleted.");
+            loadProducts();
+            loadManageProducts();
+            loadDashboard();
+        }else{
+            alert(data.error || "Delete failed.");
+        }
+
+    }catch(error){
+        alert("Could not connect to server.");
+    }
+}
+
+loadManageProducts();
+</script>
+
+
+<section class="chat">
+<h2>⚙️ Manage Customers / Leads</h2>
+
+<div id="manageLeads">
+<div class="msg">Loading customers...</div>
+</div>
+</section>
+
+<script>
+async function loadManageLeads(){
+    const box=document.getElementById("manageLeads");
+
+    try{
+        const response=await fetch("/leads");
+        const leads=await response.json();
+
+        if(!leads.length){
+            box.innerHTML='<div class="msg">No customers saved yet.</div>';
+            return;
+        }
+
+        box.innerHTML="";
+
+        leads.forEach(lead=>{
+            box.innerHTML+=`
+            <div class="msg">
+                <strong>👤 ${escapeHtml(lead.name)}</strong><br>
+                📱 ${escapeHtml(lead.phone || "No phone")}<br>
+                💬 ${escapeHtml(lead.message || "No requirement")}<br>
+                📌 Status: <strong>${escapeHtml(lead.status || "New")}</strong>
+
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                    <button onclick="changeLeadStatus(${lead.id},'New')">
+                        🆕 New
+                    </button>
+
+                    <button onclick="changeLeadStatus(${lead.id},'Contacted')">
+                        📞 Contacted
+                    </button>
+
+                    <button onclick="changeLeadStatus(${lead.id},'Converted')">
+                        ✅ Converted
+                    </button>
+
+                    <button onclick="deleteLead(${lead.id})">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>`;
+        });
+
+    }catch(error){
+        box.innerHTML='<div class="msg">Could not load customers.</div>';
+    }
+}
+
+async function changeLeadStatus(id,status){
+    try{
+        const response=await fetch("/leads/"+id,{
+            method:"PUT",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({status})
+        });
+
+        const data=await response.json();
+
+        if(response.ok){
+            loadManageLeads();
+            loadLeads();
+            loadDashboard();
+        }else{
+            alert(data.error || "Status update failed.");
+        }
+
+    }catch(error){
+        alert("Could not connect to server.");
+    }
+}
+
+async function deleteLead(id){
+    if(!confirm("Delete this customer/lead?"))return;
+
+    try{
+        const response=await fetch("/leads/"+id,{
+            method:"DELETE"
+        });
+
+        const data=await response.json();
+
+        if(response.ok){
+            alert("Customer deleted.");
+            loadManageLeads();
+            loadLeads();
+            loadDashboard();
+        }else{
+            alert(data.error || "Delete failed.");
+        }
+
+    }catch(error){
+        alert("Could not connect to server.");
+    }
+}
+
+loadManageLeads();
+</script>
+
+
+<section class="chat" id="ordersArea">
+<h2>🛒 Create Order</h2>
+
+<div style="margin-bottom:10px">
+<input id="orderCustomer" placeholder="Customer name" style="width:100%">
+</div>
+
+<div style="margin-bottom:10px">
+<input id="orderProduct" placeholder="Product name" style="width:100%">
+</div>
+
+<div style="margin-bottom:10px">
+<input id="orderQuantity" type="number" min="1" value="1" placeholder="Quantity" style="width:100%">
+</div>
+
+<div style="margin-bottom:10px">
+<input id="orderAmount" type="number" min="0" placeholder="Total amount (PKR)" style="width:100%">
+</div>
+
+<button onclick="createOrder()">Create Order</button>
+
+<div id="orderResult" class="msg" style="display:none"></div>
+</section>
+
+
+<section class="chat">
+<h2>📦 Orders</h2>
+
+<div id="ordersList">
+<div class="msg">Loading orders...</div>
+</div>
+
+<button onclick="loadOrders()">Refresh Orders</button>
+</section>
+
+<script>
+async function createOrder(){
+    const customer_name=document.getElementById("orderCustomer").value.trim();
+    const product_name=document.getElementById("orderProduct").value.trim();
+    const quantity=document.getElementById("orderQuantity").value;
+    const amount=document.getElementById("orderAmount").value;
+    const result=document.getElementById("orderResult");
+
+    if(!customer_name || !product_name || !quantity || !amount){
+        result.style.display="block";
+        result.textContent="Please fill all order fields.";
+        return;
+    }
+
+    try{
+        const response=await fetch("/orders",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                customer_name,
+                product_name,
+                quantity,
+                amount
+            })
+        });
+
+        const data=await response.json();
+
+        result.style.display="block";
+        result.textContent=data.message || data.error;
+
+        if(response.ok){
+            document.getElementById("orderCustomer").value="";
+            document.getElementById("orderProduct").value="";
+            document.getElementById("orderQuantity").value="1";
+            document.getElementById("orderAmount").value="";
+
+            loadOrders();
+            loadDashboard();
+        }
+
+    }catch(error){
+        result.style.display="block";
+        result.textContent="Could not connect to server.";
+    }
+}
+
+async function loadOrders(){
+    const box=document.getElementById("ordersList");
+
+    try{
+        const response=await fetch("/orders");
+        const orders=await response.json();
+
+        if(!orders.length){
+            box.innerHTML='<div class="msg">No orders yet.</div>';
+            return;
+        }
+
+        box.innerHTML="";
+
+        orders.forEach(order=>{
+            box.innerHTML+=`
+            <div class="msg">
+                <strong>🛒 Order #${order.id}</strong><br>
+                👤 ${escapeHtml(order.customer_name)}<br>
+                📦 ${escapeHtml(order.product_name)}<br>
+                🔢 Quantity: ${order.quantity}<br>
+                💰 Rs. ${Number(order.amount).toLocaleString()}<br>
+                📌 Status: <strong>${escapeHtml(order.status)}</strong>
+            </div>`;
+        });
+
+    }catch(error){
+        box.innerHTML='<div class="msg">Could not load orders.</div>';
+    }
+}
+
+loadOrders();
+</script>
+
+
+<section class="chat">
+<h2>📊 Business Overview</h2>
+<div id="businessOverview" style="margin-bottom:15px;">
+  <div class="msg">Loading business data...</div>
+</div>
+</div>
+
+<div class="grid">
+
+<div class="card" onclick="openProducts();" style="cursor:pointer;">
+<h3 id="dashProducts">0</h3>
+<p>📦 Products</p>
+</div>
+
+<div class="card">
+<h3 id="dashLeads">0</h3>
+<p>👥 Customers</p>
+</div>
+
+<div class="card">
+<h3 id="dashOrders">0</h3>
+<p>🛒 Orders</p>
+</div>
+
+<div class="card">
+<h3 id="dashRevenue">Rs. 0</h3>
+<p>💰 Revenue</p>
+</div>
+
+<div class="card">
+<h3 id="dashPending">0</h3>
+<p>⏳ Pending Orders</p>
+</div>
+
+<div class="card">
+<h3 id="dashConverted">0</h3>
+<p>✅ Converted Leads</p>
+</div>
+
+</div>
+
+<button onclick="loadDashboard2()">🔄 Refresh Business Data</button>
+</section>
+
+<script>
+async function loadDashboard2(){
+    try{
+        const response=await fetch("/dashboard");
+        const data=await response.json();
+
+        document.getElementById("dashProducts").textContent=data.products;
+        document.getElementById("dashLeads").textContent=data.leads;
+        document.getElementById("dashOrders").textContent=data.orders;
+        document.getElementById("dashRevenue").textContent=
+            "Rs. "+Number(data.revenue).toLocaleString();
+        document.getElementById("dashPending").textContent=data.pending_orders;
+        document.getElementById("dashConverted").textContent=data.converted_leads;
+
+    }catch(error){
+        console.log("Dashboard 2 error:",error);
+    }
+}
+
+loadDashboard2();
+</script>
+
+
+<section class="chat">
+<h2>⚙️ Manage Orders</h2>
+
+<div id="manageOrders">
+<div class="msg">Loading orders...</div>
+</div>
+</section>
+
+<script>
+async function loadManageOrders(){
+    const box=document.getElementById("manageOrders");
+
+    try{
+        const response=await fetch("/orders");
+        const orders=await response.json();
+
+        if(!orders.length){
+            box.innerHTML='<div class="msg">No orders available.</div>';
+            return;
+        }
+
+        box.innerHTML="";
+
+        orders.forEach(order=>{
+            const safeCustomer=escapeHtml(order.customer_name);
+            const safeProduct=escapeHtml(order.product_name);
+            const safeStatus=escapeHtml(order.status || "Pending");
+
+            box.innerHTML+=`
+            <div class="msg">
+                <strong>🛒 Order #${order.id}</strong><br>
+                👤 ${safeCustomer}<br>
+                📦 ${safeProduct}<br>
+                🔢 Quantity: ${order.quantity}<br>
+                💰 Rs. ${Number(order.amount).toLocaleString()}<br>
+                📌 Status: <strong>${safeStatus}</strong>
+
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                    <button onclick="changeOrderStatus(${order.id},'Pending')">
+                        ⏳ Pending
+                    </button>
+
+                    <button onclick="changeOrderStatus(${order.id},'Processing')">
+                        🔄 Processing
+                    </button>
+
+                    <button onclick="changeOrderStatus(${order.id},'Completed')">
+                        ✅ Completed
+                    </button>
+
+                    <button onclick="changeOrderStatus(${order.id},'Cancelled')">
+                        ❌ Cancelled
+                    </button>
+
+                    <button onclick="deleteOrder(${order.id})">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>`;
+        });
+
+    }catch(error){
+        box.innerHTML='<div class="msg">Could not load orders.</div>';
+    }
+}
+
+async function changeOrderStatus(id,status){
+    try{
+        const response=await fetch("/orders/"+id,{
+            method:"PUT",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({status})
+        });
+
+        const data=await response.json();
+
+        if(response.ok){
+            loadManageOrders();
+            loadOrders();
+            loadDashboard();
+            loadDashboard2();
+        }else{
+            alert(data.error || "Status update failed.");
+        }
+
+    }catch(error){
+        alert("Could not connect to server.");
+    }
+}
+
+async function deleteOrder(id){
+    if(!confirm("Delete this order?"))return;
+
+    try{
+        const response=await fetch("/orders/"+id,{
+            method:"DELETE"
+        });
+
+        const data=await response.json();
+
+        if(response.ok){
+            alert("Order deleted.");
+            loadManageOrders();
+            loadOrders();
+            loadDashboard();
+            loadDashboard2();
+        }else{
+            alert(data.error || "Delete failed.");
+        }
+
+    }catch(error){
+        alert("Could not connect to server.");
+    }
+}
+
+loadManageOrders();
+</script>
+
+
+<section class="chat">
+<h2>🔎 Quick Search</h2>
+
+<div style="margin-bottom:12px">
+<input id="globalSearch"
+       placeholder="Search products, customers or orders..."
+       style="width:100%"
+       oninput="runGlobalSearch()">
+</div>
+
+<div id="searchResults">
+<div class="msg">Type something to search.</div>
+</div>
+</section>
+
+<script>
+async function runGlobalSearch(){
+    const input = document.getElementById("globalSearch");
+    const box = document.getElementById("searchResults");
+    const query = input.value.trim().toLowerCase();
+
+    if(!query){
+        box.innerHTML = '<div class="msg">Type something to search.</div>';
+        return;
+    }
+
+    box.innerHTML = '<div class="msg">🔎 Searching...</div>';
+
+    try{
+        const [productsResponse, leadsResponse, ordersResponse] = await Promise.all([
+            fetch("/products"),
+            fetch("/leads"),
+            fetch("/orders")
+        ]);
+
+        if(!productsResponse.ok || !leadsResponse.ok || !ordersResponse.ok){
+            throw new Error("Search API error");
+        }
+
+        const products = await productsResponse.json();
+        const leads = await leadsResponse.json();
+        const orders = await ordersResponse.json();
+
+        const productMatches = products.filter(p =>
+            `${p.name || ""} ${p.description || ""}`
+            .toLowerCase()
+            .includes(query)
+        );
+
+        const leadMatches = leads.filter(l =>
+            `${l.name || ""} ${l.phone || ""} ${l.message || ""} ${l.status || ""}`
+            .toLowerCase()
+            .includes(query)
+        );
+
+        const orderMatches = orders.filter(o =>
+            `${o.id || ""} ${o.customer_name || ""} ${o.customer_phone || ""} ${o.customer_address || ""} ${o.product_name || ""} ${o.status || ""}`
+            .toLowerCase()
+            .includes(query)
+        );
+
+        let html = "";
+
+        html += `<div class="msg">
+            🔎 <strong>Search Results</strong><br>
+            📦 Products: ${productMatches.length}
+            &nbsp; • &nbsp;
+            👥 Customers: ${leadMatches.length}
+            &nbsp; • &nbsp;
+            🛒 Orders: ${orderMatches.length}
+        </div>`;
+
+        productMatches.forEach(p => {
+            html += `
+            <div class="msg">
+                📦 <strong>Product</strong><br>
+                ${escapeHtml(p.name || "Unnamed Product")}<br>
+                💰 Rs. ${Number(p.price || 0).toLocaleString()}<br>
+                <small>${escapeHtml(p.description || "")}</small>
+            </div>`;
+        });
+
+        leadMatches.forEach(l => {
+            html += `
+            <div class="msg">
+                👤 <strong>Customer / Lead</strong><br>
+                ${escapeHtml(l.name || "Unnamed Customer")}<br>
+                📱 ${escapeHtml(l.phone || "No phone")}<br>
+                📌 Status: <strong>${escapeHtml(l.status || "New")}</strong><br>
+                <small>${escapeHtml(l.message || "No requirement")}</small>
+            </div>`;
+        });
+
+        orderMatches.forEach(o => {
+            html += `
+            <div class="msg">
+                🛒 <strong>Order #${o.id}</strong><br>
+                👤 ${escapeHtml(o.customer_name || "Unknown Customer")}<br>
+                📱 ${escapeHtml(o.customer_phone || "No phone")}<br>
+                📍 ${escapeHtml(o.customer_address || "No address")}<br>
+                📦 ${escapeHtml(o.product_name || "Unknown Product")}<br>
+                🔢 Quantity: ${Number(o.quantity || 0)}<br>
+                💰 Rs. ${Number(o.amount || 0).toLocaleString()}<br>
+                📌 Status: <strong>${escapeHtml(o.status || "Pending")}</strong>
+            </div>`;
+        });
+
+        if(productMatches.length === 0 &&
+           leadMatches.length === 0 &&
+           orderMatches.length === 0){
+            box.innerHTML = `
+            <div class="msg">
+                ❌ No matching records found.<br>
+                <small>Try a product name, customer name, phone number, order number or status.</small>
+            </div>`;
+            return;
+        }
+
+        box.innerHTML = html;
+
+    }catch(error){
+        console.log("Search error:", error);
+        box.innerHTML = '<div class="msg">❌ Search could not be completed.</div>';
+    }
+}
+
+function openLeads(){
+    const section = document.getElementById("leadsArea");
+    if(section){
+        if(typeof loadLeads === "function") loadLeads();
+        section.scrollIntoView({behavior:"smooth", block:"start"});
+    }
+}
+
+function openOrders(){
+    const section = document.getElementById("ordersArea");
+    if(section){
+        if(typeof loadOrders === "function") loadOrders();
+        section.scrollIntoView({behavior:"smooth", block:"start"});
+    }
+}
+
+</script>
+
+
+<style>
+.customer-panel {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.04);
+}
+.customer-card {
+    margin: 12px 0;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.12);
+}
+.customer-card h3 {
+    margin: 0 0 8px;
+}
+.customer-orders {
+    margin-top: 10px;
+    padding-left: 10px;
+}
+</style>
+
+<script>
+async function loadCustomers() {
+    const box = document.getElementById("customersArea");
+    if (!box) return;
+
+    box.innerHTML = '<div class="msg">⏳ Loading customers...</div>';
+
+    try {
+        const [leadsResponse, ordersResponse] = await Promise.all([
+            fetch("/leads"),
+            fetch("/orders")
+        ]);
+
+        if (!leadsResponse.ok || !ordersResponse.ok) {
+            throw new Error("Customer API error");
+        }
+
+        const leads = await leadsResponse.json();
+        const orders = await ordersResponse.json();
+
+        const customers = {};
+
+        leads.forEach(l => {
+            const key = (l.phone || l.name || "").trim().toLowerCase();
+            if (!key) return;
+
+            customers[key] = {
+                name: l.name || "Unknown",
+                phone: l.phone || "No phone",
+                requirement: l.message || "No requirement",
+                orders: []
+            };
+        });
+
+        orders.forEach(o => {
+            const key = (o.customer_phone || o.customer_name || "").trim().toLowerCase();
+
+            if (!customers[key]) {
+                customers[key] = {
+                    name: o.customer_name || "Unknown",
+                    phone: o.customer_phone || "No phone",
+                    requirement: "Customer from order",
+                    orders: []
+                };
+            }
+
+            customers[key].orders.push(o);
+        });
+
+        const list = Object.values(customers);
+
+        if (!list.length) {
+            box.innerHTML = '<div class="msg">👥 No customers found.</div>';
+            return;
+        }
+
+        let html = `
+            <div class="msg">
+                👥 <strong>Customers</strong><br>
+                Total Customers: ${list.length}
+            </div>
+        `;
+
+        list.forEach(c => {
+            html += `
+                <div class="customer-card">
+                    <h3>👤 ${escapeHtml(c.name)}</h3>
+                    📱 ${escapeHtml(c.phone)}<br>
+                    📌 ${escapeHtml(c.requirement)}
+
+                    <div class="customer-orders">
+                        <strong>🛒 Order History: ${c.orders.length}</strong>
+            `;
+
+            if (!c.orders.length) {
+                html += `<br><small>No orders yet.</small>`;
+            } else {
+                c.orders.forEach(o => {
+                    html += `
+                        <div class="msg">
+                            🛒 Order #${o.id}<br>
+                            📦 ${escapeHtml(o.product_name || "Unknown Product")}<br>
+                            🔢 Quantity: ${Number(o.quantity || 0)}<br>
+                            💰 Rs. ${Number(o.amount || 0).toLocaleString()}<br>
+                            📌 ${escapeHtml(o.status || "Pending")}
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        box.innerHTML = html;
+
+    } catch (error) {
+        console.log("Customer error:", error);
+        box.innerHTML =
+            '<div class="msg">❌ Customer data could not be loaded.</div>';
+    }
+}
+</script>
+
+<div id="customersArea" class="customer-panel">
+    <div class="msg">👥 Customer Management</div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof loadCustomers === "function") {
+        loadCustomers();
+    }
+});
+</script>
+
