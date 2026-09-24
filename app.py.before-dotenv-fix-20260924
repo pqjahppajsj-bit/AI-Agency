@@ -1,6 +1,5 @@
 import re
 import os
-from pathlib import Path
 import secrets
 import requests
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
@@ -9,7 +8,7 @@ from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from security_config import configure_security
 
-load_dotenv(dotenv_path=Path(__file__).resolve().with_name(".env"))
+load_dotenv()
 
 app = Flask(__name__)
 app = configure_security(app)

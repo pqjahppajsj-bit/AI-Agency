@@ -735,23 +735,5 @@ footer{
     </div>
 </section>
 
-
-<section class="final-cta" id="demo">
-    <div class="container">
-        <div class="final-cta-box">
-            <h2>Ready to <span>grow with AI?</span></h2>
-            <p>
-                Turn customer conversations, leads, orders and follow-ups
-                into one powerful AI business system.
-            </p>
-
-            <div class="cta-buttons">
-                <a href="/login" class="btn btn-primary">Get Started</a>
-                <a href="#pricing" class="btn btn-secondary">View Pricing</a>
-            </div>
-        </div>
-    </div>
-</section>
-
 </body>
 </html>
