@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#111827">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI Agency">
+<meta name="viewport"
+          content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+    <title>AI Agency — Dashboard</title>
+
+    <style>
+        *{box-sizing:border-box}
+
+        body{
+            margin:0;
+            font-family:Arial,sans-serif;
+            background:#f5f7fb;
+            color:#111827;
+        }
+
+        header{
+            background:#111827;
+            color:white;
+            padding:16px 20px;
+            position:sticky;
+            top:0;
+            z-index:10;
+        }
+
+        .header-inner{
+            max-width:1100px;
+            margin:auto;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+        }
+
+        .brand{
+            font-size:20px;
+            font-weight:800;
+        }
+
+        .logout{
+            color:white;
+            text-decoration:none;
+            padding:9px 13px;
+            border:1px solid #ffffff44;
+            border-radius:9px;
+        }
+
+        main{
+            max-width:1100px;
+            margin:auto;
+            padding:24px 16px 50px;
+        }
+
+        .welcome{
+            margin-bottom:22px;
+        }
+
+        .welcome h1{
+            margin:0 0 7px;
+            font-size:28px;
+        }
+
+        .welcome p{
+            margin:0;
+            color:#6b7280;
+        }
+
+        .stats{
+            display:grid;
+            grid-template-columns:repeat(4,1fr);
+            gap:14px;
+            margin-bottom:22px;
+        }
+
+        .stat{
+            background:white;
+            border-radius:16px;
+            padding:20px;
+            box-shadow:0 5px 20px #0000000d;
+        }
+
+        .stat-icon{
+            font-size:25px;
+        }
+
+        .stat-number{
+            font-size:28px;
+            font-weight:800;
+            margin-top:8px;
+        }
+
+        .stat-label{
+            color:#6b7280;
+            margin-top:4px;
+        }
+
+        .tools{
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:15px;
+        }
+
+        .tool{
+            background:white;
+            border-radius:16px;
+            padding:22px;
+            box-shadow:0 5px 20px #0000000d;
+        }
+
+        .tool h2{
+            margin:0 0 8px;
+            font-size:19px;
+        }
+
+        .tool p{
+            color:#6b7280;
+            line-height:1.5;
+            margin:0 0 16px;
+        }
+
+        .button{
+            display:inline-block;
+            background:#111827;
+            color:white;
+            text-decoration:none;
+            padding:10px 14px;
+            border-radius:9px;
+            font-weight:700;
+        }
+
+        .business{
+            margin-top:22px;
+            background:white;
+            border-radius:16px;
+            padding:22px;
+            box-shadow:0 5px 20px #0000000d;
+        }
+
+        @media(max-width:800px){
+            .stats{
+                grid-template-columns:repeat(2,1fr);
+            }
+
+            .tools{
+                grid-template-columns:1fr;
+            }
+        }
+
+        @media(max-width:480px){
+            main{
+                padding:20px 12px 40px;
+            }
+
+            .welcome h1{
+                font-size:23px;
+            }
+
+            .stats{
+                gap:10px;
+            }
+
+            .stat{
+                padding:15px;
+            }
+
+            .stat-number{
+                font-size:23px;
+            }
+
+            .brand{
+                font-size:18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="brand">🤖 AI Agency</div>
+        <a class="logout" href="/customer-logout">Log out</a>
+    </div>
+</header>
+
+<main>
+
+    <section class="welcome">
+        <h1>Welcome, {{ customer.name }} 👋</h1>
+
+        {% if business %}
+            <p>{{ business.name }} — your AI business workspace.</p>
+        {% else %}
+            <p>Your AI business workspace.</p>
+        {% endif %}
+    </section>
+
+    <section class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">👥</div>
+            <div class="stat-number">{{ lead_count }}</div>
+            <div class="stat-label">Leads</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">📦</div>
+            <div class="stat-number">{{ order_count }}</div>
+            <div class="stat-label">Orders</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-number">{{ pending_orders }}</div>
+            <div class="stat-label">Pending Orders</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">🛍️</div>
+            <div class="stat-number">{{ product_count }}</div>
+            <div class="stat-label">Products</div>
+        </div>
+
+    </section>
+
+    <section class="tools">
+
+        <div class="tool">
+            <h2>🤖 AI Assistant</h2>
+            <p>Ask AI about your business, customers, sales and workflows.</p>
+            <a class="button" href="/chat">Open AI</a>
+        </div>
+
+        <div class="tool">
+            <h2>👥 Leads</h2>
+            <p>Manage business leads and follow-up opportunities.</p>
+            <a class="button" href="/leads">Open Leads</a>
+        </div>
+
+        <div class="tool">
+            <h2>📦 Orders</h2>
+            <p>View and manage your business orders.</p>
+            <a class="button" href="/orders">Open Orders</a>
+        </div>
+
+        <div class="tool">
+            <h2>🛍️ Products</h2>
+            <p>Manage your products and pricing.</p>
+            <a class="button" href="/products">Products</a>
+        </div>
+
+        <div class="tool">
+            <h2>📊 Reports</h2>
+            <p>Business analytics and AI-generated insights are next.</p>
+            <a class="button" href="/dashboard">Reports</a>
+        </div>
+
+        <div class="tool">
+            <h2>💳 Billing</h2>
+            <p>Manage your AI Agency subscription and payments.</p>
+            <a class="button" href="/payment">Billing</a>
+        </div>
+
+    </section>
+
+    {% if business %}
+    <section class="business">
+        <h2>🏢 Business Profile</h2>
+        <p><strong>{{ business.name }}</strong></p>
+
+        {% if business.owner_name %}
+            <p>Owner: {{ business.owner_name }}</p>
+        {% endif %}
+
+        {% if business.email %}
+            <p>Email: {{ business.email }}</p>
+        {% endif %}
+
+        {% if business.phone %}
+            <p>Phone: {{ business.phone }}</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+</main>
+
+
+<script>
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+        navigator.serviceWorker.register("/service-worker.js")
+            .then(function () {
+                console.log("AI Agency PWA: registered");
+            })
+            .catch(function (error) {
+                console.log("AI Agency PWA registration failed:", error);
+            });
+    });
+}
+</script>
+
+</body>
+</html>

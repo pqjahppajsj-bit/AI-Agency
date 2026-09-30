@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<meta name="description"
+content="AI Agency pricing plans for business automation, AI assistance,
+customer management, leads, orders and business workflows.">
+
+<meta name="robots" content="index,follow">
+
+<title>Pricing — AI Agency</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    color:#111827;
+    background:#f8fafc;
+}
+
+nav{
+    background:#111827;
+    padding:16px 20px;
+}
+
+.nav{
+    max-width:1150px;
+    margin:auto;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+}
+
+.brand{
+    color:white;
+    text-decoration:none;
+    font-size:21px;
+    font-weight:900;
+}
+
+.links{
+    display:flex;
+    gap:18px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.links a{
+    color:#d1d5db;
+    text-decoration:none;
+}
+
+main{
+    max-width:1150px;
+    margin:auto;
+    padding:65px 20px 80px;
+}
+
+.heading{
+    text-align:center;
+    max-width:760px;
+    margin:0 auto 45px;
+}
+
+.heading h1{
+    font-size:48px;
+    margin:0 0 15px;
+    letter-spacing:-1px;
+}
+
+.heading p{
+    color:#64748b;
+    font-size:18px;
+    line-height:1.7;
+    margin:0;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+    align-items:stretch;
+}
+
+.card{
+    position:relative;
+    background:white;
+    border:1px solid #e5e7eb;
+    border-radius:22px;
+    padding:32px 27px;
+    box-shadow:0 10px 35px #0000000a;
+    display:flex;
+    flex-direction:column;
+}
+
+.card.featured{
+    border:2px solid #111827;
+    transform:translateY(-8px);
+}
+
+.badge{
+    position:absolute;
+    top:-14px;
+    left:50%;
+    transform:translateX(-50%);
+    background:#111827;
+    color:white;
+    padding:7px 14px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+.plan{
+    font-size:25px;
+    font-weight:900;
+    margin-bottom:10px;
+}
+
+.price{
+    font-size:40px;
+    font-weight:900;
+    margin:8px 0;
+}
+
+.price span{
+    font-size:15px;
+    color:#64748b;
+    font-weight:500;
+}
+
+.description{
+    color:#64748b;
+    line-height:1.6;
+    min-height:52px;
+}
+
+ul{
+    list-style:none;
+    padding:0;
+    margin:22px 0;
+    flex:1;
+}
+
+li{
+    padding:9px 0;
+    color:#374151;
+}
+
+li:before{
+    content:"✓";
+    font-weight:900;
+    margin-right:9px;
+}
+
+.button{
+    display:block;
+    text-align:center;
+    text-decoration:none;
+    background:#111827;
+    color:white;
+    padding:14px 18px;
+    border-radius:11px;
+    font-weight:800;
+}
+
+.button.secondary{
+    background:#f1f5f9;
+    color:#111827;
+}
+
+.note{
+    text-align:center;
+    color:#64748b;
+    margin:35px auto 0;
+    max-width:750px;
+    line-height:1.6;
+    font-size:14px;
+}
+
+@media(max-width:850px){
+    .grid{
+        grid-template-columns:1fr;
+        max-width:520px;
+        margin:auto;
+    }
+
+    .card.featured{
+        transform:none;
+    }
+
+    .heading h1{
+        font-size:38px;
+    }
+}
+
+@media(max-width:600px){
+    .nav{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    main{
+        padding-top:45px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+<div class="nav">
+
+<a class="brand" href="/">🤖 AI Agency</a>
+
+<div class="links">
+<a href="/">Home</a>
+<a href="/about">About</a>
+<a href="/services">Services</a>
+<a href="/pricing">Pricing</a>
+<a href="/customer-login">Login</a>
+</div>
+
+</div>
+</nav>
+
+<main>
+
+<section class="heading">
+
+<h1>Simple, Professional Pricing</h1>
+
+<p>
+Choose the AI Agency plan that fits your business.
+Start with the tools you need and scale as your business grows.
+</p>
+
+</section>
+
+<section class="grid">
+
+<!-- STARTER -->
+<div class="card">
+
+<div class="plan">Starter</div>
+
+<div class="price">
+PKR 10,000 <span>/ month</span>
+</div>
+
+<p class="description">
+Essential AI-powered tools for businesses getting started with automation.
+</p>
+
+<ul>
+<li>Business workspace</li>
+<li>Customer management</li>
+<li>Lead management</li>
+<li>Product management</li>
+<li>Order management</li>
+<li>AI business assistance</li>
+</ul>
+
+<a class="button secondary" href="/payment?plan=Starter">
+Get Started →
+</a>
+
+</div>
+
+
+<!-- BUSINESS -->
+<div class="card featured">
+
+<div class="badge">MOST POPULAR</div>
+
+<div class="plan">Business</div>
+
+<div class="price">
+PKR 25,000 <span>/ month</span>
+</div>
+
+<p class="description">
+A complete business automation workspace for growing businesses.
+</p>
+
+<ul>
+<li>Everything in Starter</li>
+<li>Advanced AI assistance</li>
+<li>Business insights</li>
+<li>Lead follow-up assistance</li>
+<li>Order workflow support</li>
+<li>Priority business features</li>
+</ul>
+
+<a class="button" href="/payment?plan=Business">
+Choose Business →
+</a>
+
+</div>
+
+
+<!-- PRO -->
+<div class="card">
+
+<div class="plan">Pro</div>
+
+<div class="price">
+PKR 50,000 <span>/ month</span>
+</div>
+
+<p class="description">
+Advanced automation and AI capabilities for businesses ready to scale.
+</p>
+
+<ul>
+<li>Everything in Business</li>
+<li>Advanced automation</li>
+<li>AI workflow assistance</li>
+<li>Advanced business insights</li>
+<li>Priority support</li>
+<li>Scaling-ready features</li>
+</ul>
+
+<a class="button secondary" href="/payment?plan=Pro">
+Go Pro →
+</a>
+
+</div>
+
+</section>
+
+<p class="note">
+Plans and included features may evolve as AI Agency develops.
+Payments may require manual verification while the payment system is being
+expanded. Do not send passwords, PINs or OTPs to anyone.
+</p>
+
+</main>
+
+</body>
+</html>

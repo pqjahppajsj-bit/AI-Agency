@@ -1,0 +1,10 @@
+{
+  "name": "AI Agency",
+  "short_name": "AI Agency",
+  "description": "AI-powered business management platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary"
+}

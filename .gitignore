@@ -1,27 +1,47 @@
-venv/
-__pycache__/
-*.pyc
+# Secrets
 .env
 .env.*
+!.env.example
 !.env.production.example
 
-instance/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Databases / runtime data
 *.db
 *.sqlite
 *.sqlite3
-
-*.log
-.DS_Store
-debug=True
-
-# Redis local data
+instance/
+data/
 dump.rdb
 
-# Local secrets
-.env
-.en
+# Logs
+*.log
 
-# Local backups
-*backup*
+# Backups
+*.backup*
+*.before-*
 *.bak
-*.backup
+*.old
+
+# Android build output
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/**/build/
+android-app/local.properties
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+*.swo

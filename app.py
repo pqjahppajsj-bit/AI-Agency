@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import secrets
 import requests
+from ai_engine import ask_ai
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from flask_limiter import Limiter
 from dotenv import load_dotenv
@@ -90,6 +91,36 @@ def csrf_cookie(response):
 
     return response
 
+
+# ===== AI AGENCY CUSTOMER PLATFORM =====
+
+class Customer(db.Model):
+    __tablename__ = "customers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey("business.id"), nullable=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+
+
+# ===== PAYMENT MODEL =====
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey("business.id"),
+        nullable=True
+    )
+    customer_name = db.Column(db.String(120), nullable=False)
+    customer_phone = db.Column(db.String(50), default="")
+    plan = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Float, nullable=False, default=0)
+    transaction_id = db.Column(db.String(120), nullable=False)
+    status = db.Column(db.String(30), default="Pending")
+    created_at = db.Column(db.DateTime, default=db.func.now())
+
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per minute")
 def login():
@@ -136,10 +167,7 @@ def require_admin():
 
 @app.route("/")
 def home():
-    if not require_admin():
-        return redirect(url_for("login"))
     return render_template("index.html")
-
 
 @app.route("/health")
 def health():
@@ -594,391 +622,41 @@ def delete_lead(lead_id):
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.get_json(silent=True) or {}
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or request.form
     message = str(data.get("message", "")).strip()
 
     if not message:
-        return jsonify({"reply": "Please type a message."}), 400
+        return jsonify({"error": "Message is required"}), 400
 
-    text = message.lower()
-    business = require_active_business()
-    if business is None:
-        products = []
-    else:
-        products = Product.query.filter_by(
-            business_id=business.id
-        ).all()
+    try:
+        reply = ask_ai(message)
+        return jsonify({
+            "message": message,
+            "reply": reply,
+            "ai_status": "online"
+        })
+    except Exception as exc:
+        error_text = str(exc)
 
-    # -------------------------------------------------
-    # ORDER SESSION HELPERS
-    # -------------------------------------------------
-    order_keys = [
-        "pending_order_product",
-        "pending_order_quantity",
-        "pending_order_name",
-        "pending_order_phone"
-    ]
-
-    def clear_order_session():
-        for key in order_keys:
-            session.pop(key, None)
-
-    # -------------------------------------------------
-    # START / RESTART ORDER
-    # -------------------------------------------------
-    order_words = [
-        "order", "orders", "booking", "purchase",
-        "buy", "chahiye", "chahta", "chahti",
-        "mangwana", "mangwa do", "khareedna",
-        "kharidna"
-    ]
-
-    is_order = any(word in text for word in order_words)
-
-    # If customer sends a NEW order request, always restart
-    # the order conversation so stale session data cannot
-    # turn the new order message into an address.
-    if is_order:
-        clear_order_session()
-
-        matched_product = None
-
-        # Exact product name
-        for product in products:
-            if product.name.lower() in text:
-                matched_product = product
-                break
-
-        # Product name parts
-        if not matched_product:
-            for product in products:
-                product_words = product.name.lower().split()
-                if any(
-                    len(word) >= 4 and word in text
-                    for word in product_words
-                ):
-                    matched_product = product
-                    break
-
-        if not matched_product:
+        # API credits/quota unavailable: keep application healthy.
+        if (
+            "credit_balance_exhausted" in error_text
+            or "insufficient_quota" in error_text
+            or "429" in error_text
+        ):
             return jsonify({
-                "reply": (
-                    "Kaunsa product order karna hai?\n\n"
-                    + "\n".join(
-                        f"• {p.name} — Rs. {p.price:.0f}"
-                        for p in products
-                    )
-                )
-            })
-
-        # Quantity detection
-        quantity = None
-
-        number_match = re.search(
-            r"\b(\d{1,4})\b",
-            text
-        )
-
-        if number_match:
-            quantity = int(number_match.group(1))
-
-        quantity_words = {
-            "one": 1,
-            "two": 2,
-            "three": 3,
-            "four": 4,
-            "five": 5,
-            "six": 6,
-            "seven": 7,
-            "eight": 8,
-            "nine": 9,
-            "ten": 10,
-            "ek": 1,
-            "do": 2,
-            "teen": 3,
-            "char": 4,
-            "paanch": 5,
-            "chhe": 6,
-            "che": 6,
-            "saat": 7,
-            "aath": 8,
-            "nau": 9,
-            "das": 10
-        }
-
-        if quantity is None:
-            for word, value in quantity_words.items():
-                if re.search(r"\b" + re.escape(word) + r"\b", text):
-                    quantity = value
-                    break
-
-        if quantity is None:
-            quantity = 1
-
-        if quantity < 1 or quantity > 1000:
-            return jsonify({
-                "reply": "Quantity 1 se 1000 ke darmiyan honi chahiye."
-            })
-
-        session["pending_order_product"] = matched_product.id
-        session["pending_order_quantity"] = quantity
-        session.pop("pending_order_name", None)
-        session.pop("pending_order_phone", None)
-
-        total = matched_product.price * quantity
+                "message": message,
+                "reply": "AI service is temporarily unavailable because API credits are exhausted. Please try again after API credits are added.",
+                "ai_status": "temporarily_unavailable"
+            }), 503
 
         return jsonify({
-            "reply": (
-                f"🛒 Product: {matched_product.name}\n"
-                f"Quantity: {quantity}\n"
-                f"Total: Rs. {total:.0f}\n\n"
-                f"Order continue karne ke liye apna naam batayein."
-            )
-        })
-
-    # -------------------------------------------------
-    # EXISTING ORDER: CUSTOMER NAME
-    # -------------------------------------------------
-    pending_product = session.get("pending_order_product")
-    pending_quantity = session.get("pending_order_quantity")
-    pending_name = session.get("pending_order_name")
-    pending_phone = session.get("pending_order_phone")
-
-    if pending_product and pending_quantity and not pending_name:
-        name = message.strip()
-
-        if len(name) < 2 or len(name) > 120:
-            return jsonify({
-                "reply": "Please apna valid naam batayein."
-            })
-
-        product = Product.query.filter_by(id=pending_product).first()
-
-        if not product:
-            clear_order_session()
-            return jsonify({
-                "reply": "Product available nahi hai. Dobara order start karein."
-            })
-
-        session["pending_order_name"] = name
-
-        total = product.price * int(pending_quantity)
-
-        return jsonify({
-            "reply": (
-                f"Name: {name}\n"
-                f"Product: {product.name}\n"
-                f"Quantity: {pending_quantity}\n"
-                f"Total: Rs. {total:.0f}\n\n"
-                f"Ab apna mobile number batayein."
-            )
-        })
-
-    # -------------------------------------------------
-    # EXISTING ORDER: PHONE
-    # -------------------------------------------------
-    if pending_product and pending_quantity and pending_name and not pending_phone:
-        phone = message.strip()
-        phone_digits = re.sub(r"\D", "", phone)
-
-        if len(phone_digits) < 10 or len(phone_digits) > 15:
-            return jsonify({
-                "reply": "Please valid mobile number batayein. Example: 03001234567"
-            })
-
-        session["pending_order_phone"] = phone
-
-        return jsonify({
-            "reply": (
-                f"Customer name: {pending_name}\n"
-                f"Phone: {phone}\n\n"
-                f"Ab delivery address batayein."
-            )
-        })
-
-    # -------------------------------------------------
-    # EXISTING ORDER: ADDRESS + CREATE ORDER
-    # -------------------------------------------------
-    if pending_product and pending_quantity and pending_name and pending_phone:
-        address = message.strip()
-
-        if len(address) < 3 or len(address) > 300:
-            return jsonify({
-                "reply": "Please apna complete delivery address batayein."
-            })
-
-        product = Product.query.filter_by(id=pending_product).first()
-
-        if not product:
-            clear_order_session()
-            return jsonify({
-                "reply": "Product available nahi hai. Dobara order start karein."
-            })
-
-        quantity = int(pending_quantity)
-        total = product.price * quantity
-
-        order = Order(
-            customer_name=pending_name,
-            customer_phone=pending_phone,
-            customer_address=address,
-            product_name=product.name,
-            quantity=quantity,
-            amount=total,
-            status="Pending"
-        )
-
-        db.session.add(order)
-        db.session.commit()
-
-        order_id = order.id
-
-        customer_name = pending_name
-        customer_phone = pending_phone
-
-        # IMPORTANT:
-        # Clear every pending field after successful order.
-        clear_order_session()
-
-        return jsonify({
-            "reply": (
-                f"✅ Order successfully receive ho gaya!\n\n"
-                f"Order ID: #{order_id}\n"
-                f"Customer: {customer_name}\n"
-                f"Phone: {customer_phone}\n"
-                f"Product: {product.name}\n"
-                f"Quantity: {quantity}\n"
-                f"Total: Rs. {total:.0f}\n"
-                f"Address: {address}\n"
-                f"Status: Pending\n\n"
-                f"Business team aapke order ko process karegi."
-            ),
-            "order_id": order_id
-        })
-
-    # -------------------------------------------------
-    # PRODUCT / PRICE INFORMATION
-    # -------------------------------------------------
-    if any(word in text for word in [
-        "price", "rate", "cost", "kitne", "kitni",
-        "qeemat", "keemat", "daam"
-    ]):
-        for product in products:
-            if product.name.lower() in text:
-                return jsonify({
-                    "reply": (
-                        f"{product.name} ki price "
-                        f"Rs. {product.price:.0f} hai."
-                    )
-                })
-
-        if products:
-            return jsonify({
-                "reply": (
-                    "Available products:\n\n" +
-                    "\n".join(
-                        f"• {p.name} — Rs. {p.price:.0f}"
-                        for p in products
-                    )
-                )
-            })
-
-        return jsonify({
-            "reply": "Abhi koi product available nahi hai."
-        })
-
-    # -------------------------------------------------
-    # PRODUCT LIST
-    # -------------------------------------------------
-    if any(word in text for word in [
-        "products", "product", "items",
-        "kya kya hai", "available"
-    ]):
-        if products:
-            return jsonify({
-                "reply": (
-                    "Available products:\n\n" +
-                    "\n".join(
-                        f"• {p.name} — Rs. {p.price:.0f}"
-                        for p in products
-                    )
-                )
-            })
-
-        return jsonify({
-            "reply": "Abhi koi product available nahi hai."
-        })
-
-    # -------------------------------------------------
-    # GREETING
-    # -------------------------------------------------
-    if any(word in text for word in [
-        "hello", "hi", "hey", "salam",
-        "assalam", "aoa"
-    ]):
-        return jsonify({
-            "reply": (
-                "Hello! 👋 Main aapka AI Business Assistant hoon. "
-                "Products, prices, orders, delivery ya complaints "
-                "ke baare mein pooch sakte hain."
-            )
-        })
-
-    # -------------------------------------------------
-    # ORDER STATUS / GENERAL ORDER QUESTION
-    # -------------------------------------------------
-    if any(word in text for word in [
-        "order status", "order ka status",
-        "mera order", "my order"
-    ]):
-        return jsonify({
-            "reply": (
-                "Aap apna Order ID batayein, "
-                "business team order status check kar sakti hai."
-            )
-        })
-
-    # -------------------------------------------------
-    # DELIVERY
-    # -------------------------------------------------
-    if any(word in text for word in [
-        "delivery", "deliver", "shipping",
-        "bhejna", "pohanch"
-    ]):
-        return jsonify({
-            "reply": (
-                "Delivery business team order confirm hone ke baad "
-                "customer ke address par arrange karegi."
-            )
-        })
-
-    # -------------------------------------------------
-    # COMPLAINT / SUPPORT
-    # -------------------------------------------------
-    if any(word in text for word in [
-        "complaint", "problem", "issue",
-        "masla", "shikayat", "support"
-    ]):
-        return jsonify({
-            "reply": (
-                "Ji, aap apni complaint ya problem detail mein "
-                "batayein. Business team usay handle karegi."
-            )
-        })
-
-    # -------------------------------------------------
-    # DEFAULT
-    # -------------------------------------------------
-    return jsonify({
-        "reply": (
-            "Ji, main aapki help kar sakta hoon. "
-            "Products, prices, orders, delivery ya complaints "
-            "ke baare mein poochhein."
-        )
-    })
-
-
-
+            "error": "AI service temporarily unavailable",
+            "ai_status": "error"
+        }), 503
 
 @app.route("/api/ai-insights", methods=["GET"])
 def ai_business_insights():
@@ -1319,5 +997,367 @@ def activate_business(business_id):
         }
     })
 
+
+# ===== CUSTOMER ACCOUNT ROUTES =====
+
+@app.route("/signup", methods=["GET", "POST"])
+def customer_signup():
+    if request.method == "GET":
+        return render_template("signup.html")
+
+    data = request.get_json(silent=True) or request.form
+    name = str(data.get("name", "")).strip()
+    email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
+
+    if not name or not email or len(password) < 8:
+        return jsonify({
+            "error": "Name, email and password (minimum 8 characters) are required."
+        }), 400
+
+    existing = Customer.query.filter_by(email=email).first()
+    if existing:
+        return jsonify({"error": "Account already exists."}), 409
+
+    from werkzeug.security import generate_password_hash
+
+    business = Business(
+        name=f"{name}'s Business",
+        owner_name=name,
+        email=email,
+    )
+    db.session.add(business)
+    db.session.flush()
+
+    customer = Customer(
+        business_id=business.id,
+        name=name,
+        email=email,
+        password_hash=generate_password_hash(password),
+    )
+    db.session.add(customer)
+    db.session.commit()
+
+    session["customer_id"] = customer.id
+    session["customer_name"] = customer.name
+    session["customer_business_id"] = business.id
+
+    if request.is_json:
+        return jsonify({
+            "message": "Account created successfully",
+            "redirect": "/customer-dashboard"
+        }), 201
+
+    return redirect(url_for("customer_dashboard"))
+
+
+@app.route("/customer-login", methods=["GET", "POST"])
+def customer_login():
+    if request.method == "GET":
+        return render_template("customer_login.html")
+
+    data = request.get_json(silent=True) or request.form
+    email = str(data.get("email", "")).strip().lower()
+    password = str(data.get("password", ""))
+
+    customer = Customer.query.filter_by(email=email).first()
+
+    from werkzeug.security import check_password_hash
+
+    if not customer or not check_password_hash(customer.password_hash, password):
+        if request.is_json:
+            return jsonify({"error": "Invalid email or password"}), 401
+        return render_template(
+            "customer_login.html",
+            error="Invalid email or password"
+        ), 401
+
+    session["customer_id"] = customer.id
+    session["customer_name"] = customer.name
+    session["customer_business_id"] = customer.business_id
+
+    if request.is_json:
+        return jsonify({
+            "message": "Login successful",
+            "redirect": "/customer-dashboard"
+        })
+
+    return redirect(url_for("customer_dashboard"))
+
+
+@app.route("/customer-dashboard", methods=["GET"])
+def customer_dashboard():
+    customer_id = session.get("customer_id")
+
+    if not customer_id:
+        return redirect(url_for("customer_login"))
+
+    customer = db.session.get(Customer, int(customer_id))
+
+    if customer is None:
+        session.pop("customer_id", None)
+        session.pop("customer_name", None)
+        session.pop("customer_business_id", None)
+        return redirect(url_for("customer_login"))
+
+    business_id = customer.business_id
+    business = db.session.get(Business, business_id) if business_id else None
+
+    product_count = (
+        Product.query.filter_by(business_id=business_id).count()
+        if business_id else 0
+    )
+
+    lead_count = (
+        Lead.query.filter_by(business_id=business_id).count()
+        if business_id else 0
+    )
+
+    order_count = (
+        Order.query.filter_by(business_id=business_id).count()
+        if business_id else 0
+    )
+
+    pending_orders = (
+        Order.query.filter_by(
+            business_id=business_id,
+            status="Pending"
+        ).count()
+        if business_id else 0
+    )
+
+    return render_template(
+        "customer_dashboard.html",
+        customer=customer,
+        business=business,
+        product_count=product_count,
+        lead_count=lead_count,
+        order_count=order_count,
+        pending_orders=pending_orders,
+    )
+
+
+@app.route("/customer-logout", methods=["GET", "POST"])
+def customer_logout():
+    session.pop("customer_id", None)
+    session.pop("customer_name", None)
+    session.pop("customer_business_id", None)
+
+    if request.is_json:
+        return jsonify({"message": "Logged out"})
+
+    return redirect(url_for("customer_login"))
+
+
+
+# ===== AI AGENCY PWA ROUTE =====
+
+@app.route("/service-worker.js")
+def service_worker():
+    sw = Path("static/sw.js").read_text()
+    return sw, 200, {"Content-Type": "application/javascript"}
+
+# ===== AI AGENCY PROFESSIONAL PAGES =====
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
+@app.route("/services")
+def services():
+    return render_template("services.html")
+
+
+# ===== AI AGENCY PRICING PAGE =====
+
+@app.route("/pricing")
+def pricing():
+    return render_template("pricing.html")
+
+
+# ===== AI AGENCY CUSTOMER SIGNUP UI =====
+
+@app.route("/signup", methods=["GET"])
+def signup():
+    return render_template("signup.html")
+
+
+
+
+
+
+# ===== PUBLIC PAYMENT PAGE =====
+@app.route("/payment", methods=["GET"])
+def payment():
+    return render_template("payment.html")
+
+
+
+# ===== PUBLIC LEGAL PAGE =====
+@app.route("/privacy", methods=["GET"])
+def privacy():
+    return render_template("privacy.html")
+
+
+
+# ===== PUBLIC LEGAL PAGE =====
+@app.route("/terms", methods=["GET"])
+def terms():
+    return render_template("terms.html")
+
+
+
+# ===== PUBLIC LEGAL PAGE =====
+@app.route("/refund-policy", methods=["GET"])
+def refund_policy():
+    return render_template("refund_policy.html")
+
+
+# ===== PAYMENT SUBMISSION =====
+@app.route("/payment/submit", methods=["POST"])
+@limiter.limit("10 per hour")
+def payment_submit():
+    data = request.get_json(silent=True) or request.form
+
+    customer_name = str(data.get("customer_name", "")).strip()
+    customer_phone = str(data.get("customer_phone", "")).strip()
+    plan = str(data.get("plan", "")).strip()
+    transaction_id = str(data.get("transaction_id", "")).strip()
+
+    plans = {
+        "Starter": 10000,
+        "Business": 25000,
+        "Pro": 50000,
+    }
+
+    if not customer_name or not plan or not transaction_id:
+        return jsonify({"error": "Required payment fields are missing"}), 400
+
+    if plan not in plans:
+        return jsonify({"error": "Invalid plan"}), 400
+
+    payment = Payment(
+        business_id=get_active_business().id if get_active_business() else None,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        plan=plan,
+        amount=plans[plan],
+        transaction_id=transaction_id,
+        status="Pending",
+    )
+
+    db.session.add(payment)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Payment submitted for verification",
+        "payment_id": payment.id,
+        "status": payment.status,
+    }), 201
+
+
+# ===== ADMIN PAYMENTS =====
+@app.route("/admin/payments", methods=["GET"])
+def admin_payments():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    payments = Payment.query.order_by(Payment.id.desc()).all()
+
+    return jsonify([
+        {
+            "id": p.id,
+            "customer_name": p.customer_name,
+            "customer_phone": p.customer_phone,
+            "plan": p.plan,
+            "amount": p.amount,
+            "transaction_id": p.transaction_id,
+            "status": p.status,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in payments
+    ])
+
+
+@app.route("/admin/payments/<int:payment_id>/status", methods=["POST"])
+def admin_payment_status(payment_id):
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or request.form
+    status = str(data.get("status", "")).strip()
+
+    allowed = {"Pending", "Verified", "Rejected"}
+
+    if status not in allowed:
+        return jsonify({"error": "Invalid status"}), 400
+
+    payment = db.session.get(Payment, payment_id)
+
+    if payment is None:
+        return jsonify({"error": "Payment not found"}), 404
+
+    payment.status = status
+    db.session.commit()
+
+    return jsonify({
+        "message": "Payment status updated",
+        "payment_id": payment.id,
+        "status": payment.status,
+    })
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
+
+
+# ===== PUBLIC BUSINESS INQUIRY / CONTACT =====
+@app.route("/contact", methods=["GET", "POST"])
+@limiter.limit("20 per hour")
+def contact():
+    if request.method == "GET":
+        return render_template("contact.html")
+
+    data = request.get_json(silent=True) or request.form
+
+    name = str(data.get("name", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    message = str(data.get("message", "")).strip()
+
+    if not name or not message:
+        return jsonify({
+            "error": "Name and business requirement are required."
+        }), 400
+
+    if len(name) > 120 or len(phone) > 50 or len(message) > 500:
+        return jsonify({"error": "Input is too long."}), 400
+
+    lead = Lead(
+        name=name,
+        phone=phone,
+        message=message,
+        status="New"
+    )
+
+    db.session.add(lead)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Your business inquiry has been received."
+    }), 201
+
+
+@app.route("/privacy", methods=["GET"])
+def privacy_page_public():
+    return render_template("privacy.html")
+
+
+@app.route("/terms", methods=["GET"])
+def terms_page_public():
+    return render_template("terms.html")
+
+
+@app.route("/refund-policy", methods=["GET"])
+def refund_policy_page_public():
+    return render_template("refund_policy.html")

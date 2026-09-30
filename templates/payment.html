@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payment — AI Agency</title>
+    <meta name="description" content="Choose an AI Agency plan and submit your payment transaction for verification.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<header class="navbar">
+    <div class="container navbar-inner">
+        <a href="/">AI Agency</a>
+
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/services">Services</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/contact">Contact</a>
+        </nav>
+    </div>
+</header>
+
+<main class="container section">
+
+    <div class="card">
+        <h1>Start AI Agency Service</h1>
+        <p>Choose your plan and submit your transaction ID for verification.</p>
+
+        <form id="paymentForm">
+
+            <label>
+                Name
+                <input id="customer_name" required>
+            </label>
+
+            <label>
+                Phone
+                <input id="customer_phone">
+            </label>
+
+            <label>
+                Plan
+                <select id="plan" required>
+                    <option value="">Select plan</option>
+                    <option value="Starter">Starter — PKR 10,000/month</option>
+                    <option value="Business">Business — PKR 25,000/month</option>
+                    <option value="Pro">Pro — PKR 50,000/month</option>
+                </select>
+            </label>
+
+            <label>
+                Transaction ID
+                <input id="transaction_id" required>
+            </label>
+
+            <button type="submit">Submit Payment</button>
+
+            <p id="result"></p>
+        </form>
+    </div>
+
+</main>
+
+<script>
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+    return "";
+}
+
+document.getElementById("paymentForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const result = document.getElementById("result");
+
+    try {
+        const response = await fetch("/payment/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": getCookie("ai_agency_csrf")
+            },
+            body: JSON.stringify({
+                customer_name: document.getElementById("customer_name").value,
+                customer_phone: document.getElementById("customer_phone").value,
+                plan: document.getElementById("plan").value,
+                transaction_id: document.getElementById("transaction_id").value
+            })
+        });
+
+        const data = await response.json();
+
+        result.textContent = data.message || data.error || "Request completed.";
+    } catch (error) {
+        result.textContent = "Unable to submit payment right now.";
+    }
+});
+</script>
+
+</body>
+</html>

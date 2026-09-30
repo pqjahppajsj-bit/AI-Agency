@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<meta name="description"
+content="Customer login for AI Agency business platform.">
+
+<title>Customer Login — AI Agency</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f8fafc;
+    color:#111827;
+}
+
+nav{
+    background:#111827;
+    padding:16px 20px;
+}
+
+.nav{
+    max-width:1000px;
+    margin:auto;
+}
+
+.brand{
+    color:white;
+    text-decoration:none;
+    font-size:21px;
+    font-weight:900;
+}
+
+main{
+    min-height:calc(100vh - 65px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:30px 20px;
+}
+
+.card{
+    width:100%;
+    max-width:460px;
+    background:white;
+    border:1px solid #e5e7eb;
+    border-radius:22px;
+    padding:35px;
+    box-shadow:0 10px 35px #0000000a;
+}
+
+h1{
+    margin:0 0 12px;
+    font-size:34px;
+}
+
+p{
+    color:#64748b;
+    line-height:1.6;
+}
+
+label{
+    display:block;
+    margin:18px 0 7px;
+    font-weight:700;
+}
+
+input{
+    width:100%;
+    padding:13px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+}
+
+button{
+    width:100%;
+    margin-top:22px;
+    padding:14px;
+    border:0;
+    border-radius:10px;
+    background:#111827;
+    color:white;
+    font-weight:800;
+}
+
+.signup{
+    text-align:center;
+    margin-top:20px;
+    font-size:14px;
+}
+
+.signup a{
+    color:#111827;
+    font-weight:800;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+<div class="nav">
+<a class="brand" href="/">🤖 AI Agency</a>
+</div>
+</nav>
+
+<main>
+
+<section class="card">
+
+<h1>Customer Login</h1>
+
+<p>
+Access your AI Agency business workspace.
+</p>
+
+<form>
+
+<label for="email">Business email</label>
+<input id="email" type="email"
+placeholder="you@business.com" autocomplete="email">
+
+<label for="password">Password</label>
+<input id="password" type="password"
+placeholder="Your password" autocomplete="current-password">
+
+<button type="button"
+onclick="alert('Customer authentication will be connected in Phase 3.')">
+Login →
+</button>
+
+</form>
+
+<div class="signup">
+New customer?
+<a href="/signup">Create an account</a>
+</div>
+
+</section>
+
+</main>
+
+</body>
+</html>

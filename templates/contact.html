@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Contact AI Agency</title>
+    <meta name="description" content="Contact AI Agency for AI business automation, customer management and business solutions.">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main style="max-width:760px;margin:40px auto;padding:20px">
+    <h1>Let's Automate Your Business</h1>
+    <p>Tell us what your business needs. Our team will review your inquiry.</p>
+
+    <form id="contactForm">
+        <label>Name</label><br>
+        <input id="name" required maxlength="120"
+               style="width:100%;padding:12px;margin:8px 0 16px">
+
+        <label>Phone / WhatsApp</label><br>
+        <input id="phone" maxlength="50"
+               style="width:100%;padding:12px;margin:8px 0 16px">
+
+        <label>Business Requirement</label><br>
+        <textarea id="message" required maxlength="500" rows="6"
+                  style="width:100%;padding:12px;margin:8px 0 16px"></textarea>
+
+        <button type="submit" style="padding:12px 22px">
+            Send Business Inquiry
+        </button>
+    </form>
+
+    <p id="result"></p>
+</main>
+
+<script>
+function getCookie(name) {
+    const value = document.cookie.split("; ").find(row => row.startsWith(name + "="));
+    return value ? decodeURIComponent(value.split("=")[1]) : "";
+}
+
+document.getElementById("contactForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const result = document.getElementById("result");
+    result.textContent = "Sending...";
+
+    const response = await fetch("/contact", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": getCookie("ai_agency_csrf")
+        },
+        body: JSON.stringify({
+            name: document.getElementById("name").value.trim(),
+            phone: document.getElementById("phone").value.trim(),
+            message: document.getElementById("message").value.trim()
+        })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+        result.textContent = "Thank you! Your business inquiry has been received.";
+        document.getElementById("contactForm").reset();
+    } else {
+        result.textContent = data.error || "Unable to send inquiry.";
+    }
+});
+</script>
+</body>
+</html>

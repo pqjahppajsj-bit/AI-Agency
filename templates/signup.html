@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<meta name="description"
+content="Create your AI Agency business account and start your AI-powered business journey.">
+
+<meta name="robots" content="index,follow">
+
+<title>Create Your Account — AI Agency</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f8fafc;
+    color:#111827;
+}
+
+nav{
+    background:#111827;
+    padding:16px 20px;
+}
+
+.nav{
+    max-width:1100px;
+    margin:auto;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.brand{
+    color:white;
+    text-decoration:none;
+    font-size:21px;
+    font-weight:900;
+}
+
+.links{
+    display:flex;
+    gap:18px;
+}
+
+.links a{
+    color:#d1d5db;
+    text-decoration:none;
+}
+
+main{
+    min-height:calc(100vh - 70px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:45px 20px;
+}
+
+.wrapper{
+    width:100%;
+    max-width:1000px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:25px;
+}
+
+.info,.form{
+    background:white;
+    border:1px solid #e5e7eb;
+    border-radius:22px;
+    padding:35px;
+    box-shadow:0 10px 35px #0000000a;
+}
+
+h1{
+    font-size:40px;
+    margin:0 0 15px;
+}
+
+h2{
+    margin-top:0;
+}
+
+p{
+    color:#64748b;
+    line-height:1.7;
+}
+
+.steps{
+    margin-top:28px;
+}
+
+.step{
+    display:flex;
+    gap:14px;
+    margin:18px 0;
+}
+
+.number{
+    min-width:34px;
+    height:34px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    background:#111827;
+    color:white;
+    font-weight:900;
+}
+
+label{
+    display:block;
+    margin:16px 0 7px;
+    font-weight:700;
+}
+
+input,select{
+    width:100%;
+    padding:13px 14px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    font-size:15px;
+    outline:none;
+}
+
+input:focus,select:focus{
+    border-color:#111827;
+}
+
+.button{
+    display:block;
+    width:100%;
+    margin-top:22px;
+    padding:14px;
+    border:0;
+    border-radius:11px;
+    background:#111827;
+    color:white;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+    text-align:center;
+    text-decoration:none;
+}
+
+.login{
+    text-align:center;
+    margin-top:18px;
+    font-size:14px;
+}
+
+.login a{
+    color:#111827;
+    font-weight:800;
+}
+
+.note{
+    margin-top:18px;
+    font-size:12px;
+    color:#64748b;
+}
+
+@media(max-width:800px){
+    .wrapper{
+        grid-template-columns:1fr;
+    }
+
+    h1{
+        font-size:34px;
+    }
+
+    .links{
+        display:none;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+<div class="nav">
+<a class="brand" href="/">🤖 AI Agency</a>
+
+<div class="links">
+<a href="/">Home</a>
+<a href="/services">Services</a>
+<a href="/pricing">Pricing</a>
+<a href="/customer-login">Login</a>
+</div>
+
+</div>
+</nav>
+
+<main>
+
+<div class="wrapper">
+
+<section class="info">
+
+<h1>Start with AI Agency</h1>
+
+<p>
+Create your business workspace and prepare your company for
+AI-powered business management and automation.
+</p>
+
+<div class="steps">
+
+<div class="step">
+<div class="number">1</div>
+<div>
+<strong>Create your business profile</strong>
+<p>Tell us about your business and the work you want to manage.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="number">2</div>
+<div>
+<strong>Set up your workspace</strong>
+<p>Organize customers, leads, products and orders in one place.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="number">3</div>
+<div>
+<strong>Activate your AI tools</strong>
+<p>Use AI assistance and automation to simplify daily operations.</p>
+</div>
+</div>
+
+</div>
+
+</section>
+
+<section class="form">
+
+<h2>Create your account</h2>
+
+<p>
+Enter your basic information to begin your AI Agency onboarding.
+</p>
+
+<form>
+
+<label for="name">Full name</label>
+<input id="name" name="name" type="text"
+placeholder="Your full name" autocomplete="name" required>
+
+<label for="email">Business email</label>
+<input id="email" name="email" type="email"
+placeholder="you@business.com" autocomplete="email" required>
+
+<label for="business">Business name</label>
+<input id="business" name="business" type="text"
+placeholder="Your business name" autocomplete="organization" required>
+
+<label for="business_type">Business type</label>
+<select id="business_type" name="business_type">
+<option>Online Business</option>
+<option>Retail</option>
+<option>Services</option>
+<option>E-commerce</option>
+<option>Agency</option>
+<option>Other</option>
+</select>
+
+<button class="button" type="button"
+onclick="alert('Customer registration will be activated in the next onboarding stage.')">
+Continue →
+</button>
+
+<div class="login">
+Already have an account?
+<a href="/customer-login">Customer Login</a>
+</div>
+
+<div class="note">
+Your information will be handled according to the
+AI Agency Privacy Policy.
+</div>
+
+</form>
+
+</section>
+
+</div>
+
+</main>
+
+</body>
+</html>
